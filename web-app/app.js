@@ -38,9 +38,9 @@ let state = {
 
 // Mapeos locales de fallback en caso de que la tabla de Supabase no esté creada todavía
 const localMappingsFallback = [
-  { id: 1, client_name: "Google", commercial_brand: "Conexion Ejecutiva" },
-  { id: 2, client_name: "Microsoft", commercial_brand: "Recurso Humano" },
-  { id: 3, client_name: "Amazon", commercial_brand: "Nomipago" }
+  { id: 1, client_name: "Google", commercial_brand: "Conexion Ejecutiva", config: {} },
+  { id: 2, client_name: "Microsoft", commercial_brand: "Recurso Humano", config: {} },
+  { id: 3, client_name: "Amazon", commercial_brand: "Nomipago", config: {} }
 ];
 
 const brandLogos = {
@@ -219,7 +219,7 @@ function renderMappingsTable() {
       </td>
       <td class="text-right">
         <div class="actions-row">
-          <button class="btn-table-action edit" onclick="openEditMappingModal(${mapping.id}, '${escapeJS(mapping.client_name)}', '${escapeJS(mapping.commercial_brand)}')">
+          <button class="btn-table-action edit" onclick="openEditMappingModal(${mapping.id}, '${escapeJS(mapping.client_name)}', '${escapeJS(mapping.commercial_brand)}', '${escapeJS(JSON.stringify(mapping.config || {}))}')">
             <i data-lucide="edit-3"></i>
           </button>
           <button class="btn-table-action delete" onclick="handleDeleteMapping(${mapping.id})">
@@ -319,9 +319,11 @@ async function resolveCommercialBrand(clientName) {
 
   if (found) {
     state.resolvedBrand = found.commercial_brand;
+    state.resolvedConfig = found.config || {};
   } else {
     // Por defecto Conexion Ejecutiva
     state.resolvedBrand = "Conexion Ejecutiva"; 
+    state.resolvedConfig = {};
   }
 }
 
@@ -372,15 +374,69 @@ function buildDynamicForm(template) {
   innerTitle.innerText = 'Preguntas de la Visita';
   generalGroup.appendChild(innerTitle);
 
+  // Formatear etiqueta (ej. "Persona_Informacion" -> "Persona Informacion")
+  const formatLabel = (str) => {
+    return str.replace(/_/g, ' ');
+  };
+
+  const config = state.resolvedConfig || {};
+
   schema.forEach(field => {
+    // Ocultar Fecha de Solicitud y Resultado Final si está configurado
+    if (config.hideFields !== false) {
+      if (field.id === 'fecha_solicitud' || field.id === 'resultado_final' || field.id === 'fecha_de_solicitud') {
+        return; // Salta este campo, no lo dibuja
+      }
+    }
+
     const formGroup = document.createElement('div');
     formGroup.className = 'form-group';
+    
+    // Lógica especial para Demandas
+    if (config.dynamicDemandas !== false && field.id === 'demandas') {
+      formGroup.innerHTML = `
+        <label class="form-group-select-label" style="margin-bottom:6px; display:flex; align-items:center; gap: 8px;">
+          ${escapeHTML(formatLabel(field.label))} ${field.requerido ? '*' : ''}
+          <div class="tooltip" title="Preguntar si ¿Alguna vez a tenido alguna demanda? no importa que tipo de demanda" style="cursor:help; color:var(--color-primary);"><i data-lucide="help-circle" style="width:16px;height:16px;"></i></div>
+        </label>
+        <div class="select-wrapper">
+          <i data-lucide="scale" class="select-icon"></i>
+          <select id="field-${field.id}" class="form-select" ${field.requerido ? 'required' : ''}>
+            <option value="" disabled selected>Seleccione...</option>
+            <option value="No">No</option>
+            <option value="Sí">Sí</option>
+          </select>
+        </div>
+        <div id="demandas-details-container" style="display:none; margin-top: 12px;">
+          <textarea id="field-demandas-details" class="form-textarea" placeholder="Relate de manera detallada como fue la demanda, contra quien, en que año, cual fue la resolucion o veredicto..."></textarea>
+        </div>
+      `;
+      generalGroup.appendChild(formGroup);
+      
+      // Listener para mostrar/ocultar el detalle
+      setTimeout(() => {
+        const selectEl = document.getElementById(`field-${field.id}`);
+        const detailsEl = document.getElementById('demandas-details-container');
+        if (selectEl && detailsEl) {
+          selectEl.addEventListener('change', (e) => {
+            if (e.target.value === 'Sí') {
+              detailsEl.style.display = 'block';
+              document.getElementById('field-demandas-details').setAttribute('required', 'true');
+            } else {
+              detailsEl.style.display = 'none';
+              document.getElementById('field-demandas-details').removeAttribute('required');
+            }
+          });
+        }
+      }, 50);
+      return;
+    }
 
     // Generar estructura según el tipo de campo (tel, email, number, date, textarea, text)
     if (field.tipo === 'textarea') {
       formGroup.innerHTML = `
-        <label class="form-group-select-label" style="margin-bottom:6px;">${escapeHTML(field.label)} ${field.requerido ? '*' : ''}</label>
-        <textarea id="field-${field.id}" class="form-textarea" placeholder="${escapeHTML(field.placeholder)}" ${field.requerido ? 'required' : ''}></textarea>
+        <label class="form-group-select-label" style="margin-bottom:6px;">${escapeHTML(formatLabel(field.label))} ${field.requerido ? '*' : ''}</label>
+        <textarea id="field-${field.id}" class="form-textarea" placeholder="${escapeHTML(formatLabel(field.placeholder))}" ${field.requerido ? 'required' : ''}></textarea>
       `;
     } else {
       // Obtener icono idóneo para el input wrapper
@@ -394,7 +450,7 @@ function buildDynamicForm(template) {
         <div class="input-wrapper">
           <i data-lucide="${iconName}" class="input-icon"></i>
           <input type="${field.tipo}" id="field-${field.id}" class="form-input" placeholder=" " ${field.requerido ? 'required' : ''} autocomplete="off">
-          <label for="field-${field.id}" class="form-label">${escapeHTML(field.label)} ${field.requerido ? '*' : ''}</label>
+          <label for="field-${field.id}" class="form-label">${escapeHTML(formatLabel(field.label))} ${field.requerido ? '*' : ''}</label>
         </div>
       `;
     }
@@ -407,6 +463,15 @@ function buildDynamicForm(template) {
   // Agregar detector para actualizar barra de progreso
   setupProgressTracking(schema);
   lucide.createIcons();
+  
+  // Autocompletar Fecha Visita si está configurado
+  if (config.autoDate !== false) {
+    const today = new Date().toISOString().split('T')[0];
+    const fechaVisita = document.getElementById('field-fecha_visita') || document.getElementById('field-fecha_de_visita');
+    if (fechaVisita) {
+      fechaVisita.value = today;
+    }
+  }
 }
 
 /**
@@ -434,11 +499,50 @@ function setupProgressTracking(schema) {
     progressBar.style.width = `${percent}%`;
   };
 
+  // Capitalización de Nombres Propios
+  const capitalizeProperNoun = (str) => {
+    const prepositions = ['de', 'del', 'la', 'las', 'el', 'los', 'en', 'y', 'o', 'u', 'con', 'por', 'para', 'a', 'e', 'un', 'una', 'unos', 'unas'];
+    return str.split(' ').map((word, index) => {
+      const lower = word.toLowerCase();
+      if (index !== 0 && prepositions.includes(lower)) {
+        return lower;
+      }
+      return word.charAt(0).toUpperCase() + lower.slice(1);
+    }).join(' ');
+  };
+
   // Escuchar eventos en todo el formulario
-  candidateInput.addEventListener('input', updateProgress);
+  candidateInput.addEventListener('input', (e) => {
+    // Capitalizar y sincronizar con sticky header
+    const start = e.target.selectionStart;
+    const end = e.target.selectionEnd;
+    e.target.value = capitalizeProperNoun(e.target.value);
+    e.target.setSelectionRange(start, end);
+    
+    const stickyHeader = document.getElementById('sticky-candidate-header');
+    const stickyName = document.getElementById('sticky-candidate-name-text');
+    
+    if (e.target.value.trim() !== "") {
+      stickyHeader.style.display = 'block';
+      stickyName.innerText = e.target.value;
+    } else {
+      stickyHeader.style.display = 'none';
+    }
+    
+    updateProgress();
+  });
+
   schema.forEach(field => {
     const element = document.getElementById(`field-${field.id}`);
     if (element) {
+      if (field.id.includes('direccion') || field.id.includes('calle') || field.id.includes('colonia') || field.id.includes('nombre')) {
+        element.addEventListener('input', (e) => {
+          const start = e.target.selectionStart;
+          const end = e.target.selectionEnd;
+          e.target.value = capitalizeProperNoun(e.target.value);
+          e.target.setSelectionRange(start, end);
+        });
+      }
       element.addEventListener('input', updateProgress);
       element.addEventListener('change', updateProgress);
     }
@@ -472,6 +576,13 @@ async function submitCapturedForm() {
     const element = document.getElementById(`field-${field.id}`);
     if (element) {
       answers[field.id] = element.value.trim();
+    }
+    // Agregar el campo detalle de demandas si existe
+    if (field.id === 'demandas') {
+      const detailsElement = document.getElementById('field-demandas-details');
+      if (detailsElement && answers[field.id] === 'Sí') {
+        answers['demandas_detalles'] = detailsElement.value.trim();
+      }
     }
   });
 
@@ -551,9 +662,16 @@ document.getElementById('mapping-form').addEventListener('submit', async (e) => 
   const clientName = document.getElementById('mapping-client-name').value.trim();
   const commercialBrand = document.getElementById('mapping-commercial-brand').value;
 
+  const configObj = {
+    autoDate: document.getElementById('config-auto-date').checked,
+    hideFields: document.getElementById('config-hide-fields').checked,
+    dynamicDemandas: document.getElementById('config-dynamic-demandas').checked
+  };
+
   const payload = {
     client_name: clientName,
-    commercial_brand: commercialBrand
+    commercial_brand: commercialBrand,
+    config: configObj
   };
 
   try {
@@ -565,20 +683,21 @@ document.getElementById('mapping-form').addEventListener('submit', async (e) => 
       const idx = state.mappings.findIndex(m => m.id === idNum);
       if (idx !== -1) {
         state.mappings[idx].commercial_brand = commercialBrand;
+        state.mappings[idx].config = configObj;
       }
       
       // Intentar actualizar en DB
       if (client) {
         await client
           .from('client_mappings')
-          .update({ commercial_brand: commercialBrand })
+          .update({ commercial_brand: commercialBrand, config: configObj })
           .eq('id', idNum);
       }
         
     } else {
       // Agregar nuevo en Supabase o local
       const newId = Date.now();
-      state.mappings.push({ id: newId, client_name: clientName, commercial_brand: commercialBrand });
+      state.mappings.push({ id: newId, client_name: clientName, commercial_brand: commercialBrand, config: configObj });
       
       // Intentar insertar en DB
       if (client) {
@@ -597,11 +716,19 @@ document.getElementById('mapping-form').addEventListener('submit', async (e) => 
   mappingModal.classList.remove('active');
 });
 
-function openEditMappingModal(id, clientName, commercialBrand) {
+function openEditMappingModal(id, clientName, commercialBrand, configStr) {
   document.getElementById('mapping-id').value = id;
   document.getElementById('mapping-client-name').value = clientName;
   document.getElementById('mapping-client-name').setAttribute('readonly', 'true'); // No cambiar el cliente, solo su marca
   document.getElementById('mapping-commercial-brand').value = commercialBrand;
+  
+  try {
+    const config = typeof configStr === 'string' ? JSON.parse(configStr) : (configStr || {});
+    document.getElementById('config-auto-date').checked = config.autoDate !== false;
+    document.getElementById('config-hide-fields').checked = config.hideFields !== false;
+    document.getElementById('config-dynamic-demandas').checked = config.dynamicDemandas !== false;
+  } catch(e) {}
+
   document.getElementById('modal-title-action').innerText = "Editar Mapeo de Marca";
   mappingModal.classList.add('active');
 }
@@ -629,7 +756,33 @@ async function handleDeleteMapping(id) {
 // INICIALIZADORES Y LISTENERS GLOBALES
 // ==========================================================================
 
+function initTheme() {
+  const toggleBtn = document.getElementById('theme-toggle');
+  const themeIcon = document.getElementById('theme-icon');
+  
+  // Revisar si hay tema guardado
+  const savedTheme = localStorage.getItem('app-theme') || 'light';
+  document.documentElement.setAttribute('data-theme', savedTheme);
+  
+  if (savedTheme === 'dark') {
+    themeIcon.setAttribute('data-lucide', 'sun');
+  }
+
+  toggleBtn.addEventListener('click', () => {
+    const current = document.documentElement.getAttribute('data-theme');
+    const target = current === 'dark' ? 'light' : 'dark';
+    
+    document.documentElement.setAttribute('data-theme', target);
+    localStorage.setItem('app-theme', target);
+    
+    themeIcon.setAttribute('data-lucide', target === 'dark' ? 'sun' : 'moon');
+    lucide.createIcons();
+  });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+  initTheme();
+  
   // Asignar listeners del Home
   document.getElementById('btn-to-capture').addEventListener('click', () => {
     navigateTo('view-search');
