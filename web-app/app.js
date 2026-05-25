@@ -348,28 +348,46 @@ const DROPDOWNS_COTEJADOS = ["Original", "Copia", "Impresión", "Digital"];
 const DROPDOWNS_ESCOLAR = ["Historial académico", "Cardex", "Certificado", "Boleta", "Credencial escolar"];
 const DROPDOWNS_INMUEBLES = ["Factura", "Carta Poder", "Escrituras", "Ticket"];
 
-// Secciones del Wizard
+// Secciones del Wizard (8 Pasos Reclutamiento Operaciones)
 const WIZARD_SECTIONS = [
-  { id: 'sec-estudio', label: '1. Estudio' },
+  { id: 'sec-estudio', label: '1. Estudio Socioeconómico' },
   { id: 'sec-personales', label: '2. Datos Personales' },
-  { id: 'sec-documentos', label: '3. Documentos' },
-  { id: 'sec-escolar', label: '4. Escolaridad' },
-  { id: 'sec-inmuebles', label: '5. Inmuebles' },
-  { id: 'sec-vivienda', label: '6. Vivienda' },
-  { id: 'sec-otros', label: '7. Otros' }
+  { id: 'sec-escolaridad', label: '3. Escolaridad e Inmuebles' },
+  { id: 'sec-economia', label: '4. Familiar y Economía' },
+  { id: 'sec-entorno', label: '5. Entorno y Salud' },
+  { id: 'sec-referencias', label: '6. Referencias' },
+  { id: 'sec-laboral', label: '7. Historial Laboral' },
+  { id: 'sec-evidencias', label: '8. Documentos y Evidencias' }
 ];
 
 let currentWizardStep = 0;
 
 function classifyFieldSection(fieldId) {
   const id = fieldId.toLowerCase();
-  if (id.includes('fecha_visita') || id.includes('demanda') || id.includes('puesto')) return 'sec-estudio';
-  if (id.includes('nombre') || id.includes('edad') || id.includes('nacimiento') || id.includes('direccion') || id.includes('domicilio') || id.includes('telefono') || id.includes('celular') || id.includes('correo') || id.includes('civil') || id.includes('licencia') || id.includes('sangre') || id.includes('dependiente') || id.includes('vive')) return 'sec-personales';
-  if (id.includes('acta') || id.includes('imss') || id.includes('comprobante_domicilio') || id.includes('comprobante_estudio') || id.includes('credencial') || id.includes('curp') || id.includes('rfc') || id.includes('pasaporte') || id.includes('cartilla') || id.includes('recomendacion') || id.includes('nomina') || id.includes('infonavit') || id.includes('folio') || id.includes('tipo_doc')) return 'sec-documentos';
-  if (id.includes('estudia') || id.includes('primaria') || id.includes('secundaria') || id.includes('bachillerato') || id.includes('profesional') || id.includes('escolar') || id.includes('escuela') || id.includes('ciudad') || id.includes('documento_obtenido') || id.match(/años.*escuela/)) return 'sec-escolar';
-  if (id.includes('automovil') || id.includes('moto') || id.includes('casa') || id.includes('terreno') || id.includes('inmueble') || id.includes('dueño') || id.includes('documento_comprobatorio') || id.includes('valor')) return 'sec-inmuebles';
-  if (id.includes('habit') || id.includes('limpieza') || id.includes('construccion') || id.includes('baño') || id.includes('cocina') || id.includes('sala') || id.includes('comedor') || id.includes('cuarto') || id.includes('recamara') || id.includes('nivel') || id.includes('estacionamiento') || id.includes('urbana') || id.includes('mueble')) return 'sec-vivienda';
-  return 'sec-otros';
+  
+  // 1. Estudio Socioeconómico
+  if (id.match(/fecha.*solicitud/) || id.match(/fecha.*visita/) || id.match(/elaborado_por/) || id.match(/^puesto$/) || id.match(/demandas/) || id.match(/resultado/)) return 'sec-estudio';
+  
+  // 7. Historial Laboral (Debemos revisarlo primero para que no caiga en personales)
+  if (id.includes('empresa') || id.includes('giro') || id.match(/puesto.*inicial/) || id.match(/puesto.*final/) || id.includes('contrato') || id.match(/fecha.*ingreso/) || id.match(/fecha.*salida/) || id.includes('sueldo') || id.match(/motivo.*salida/) || id.match(/jefe/) || id.includes('puntualidad') || id.includes('asistencia') || id.match(/relacion.*compañero/) || id.match(/relacion.*superior/) || id.includes('responsabilidad') || id.includes('honestidad') || id.includes('equipo') || id.includes('disciplina') || id.includes('confiabilidad') || id.includes('iniciativa') || id.includes('calidad.*trabajo') || id.includes('observaciones_laboral')) return 'sec-laboral';
+  
+  // 8. Documentos y Evidencias
+  if (id.match(/documento.*acta/) || id.includes('rfc') || id.includes('curp') || id.includes('folio') || id.includes('tipo_documento') || id.includes('emergencia') || id.includes('foto') || id.includes('mapa') || id.includes('ubicacion')) return 'sec-evidencias';
+
+  // 6. Referencias Personales
+  if (id.match(/tiempo.*conocerlo/) || id.match(/como.*describiria/)) return 'sec-referencias';
+
+  // 3. Escolaridad e Inmuebles
+  if (id.includes('grado') || id.includes('escolar') || id.includes('escuela') || id.includes('documento_obtenido') || id.includes('inmueble') || id.includes('automovil') || id.includes('moto') || id.includes('casa') || id.includes('terreno') || id.match(/valor.*aproximado/) || id.includes('dueño') || id.includes('comprobatorio') || id.includes('habit') || id.includes('limpieza') || id.includes('construccion') || id.includes('baño') || id.includes('cocina') || id.includes('sala') || id.includes('comedor') || id.includes('cuarto') || id.includes('recamara') || id.includes('nivel') || id.includes('estacionamiento') || id.includes('urbana') || id.includes('mueble') || id.match(/años.*escuela/)) return 'sec-escolaridad';
+
+  // 4. Familiar y Economía
+  if (id.includes('parentesco') || id.includes('ocupacion') || id.match(/telefono.*empleo/) || id.includes('aportador') || id.includes('ingreso') || id.includes('egreso') || id.includes('predial') || id.includes('hipoteca') || id.includes('renta') || id.includes('servicios') || id.includes('luz') || id.includes('agua') || id.includes('gas') || id.includes('cable') || id.includes('internet') || id.includes('pavimentacion') || id.includes('vigilancia') || id.includes('alumbrado') || id.includes('alimentacion') || id.includes('transporte') || id.includes('educacion') || id.includes('gastos_medicos') || id.includes('entretenimiento') || id.match(/plan.*celular/) || id.includes('mascotas_gasto') || id.includes('mantenimiento') || id.includes('deuda')) return 'sec-economia';
+
+  // 5. Entorno y Salud
+  if (id.includes('originario') || id.includes('densidad') || id.includes('migratorio') || id.includes('farmaco') || id.includes('vandalismo') || id.includes('club') || id.includes('asociacion') || id.includes('deportivo') || id.includes('religion') || id.includes('pasatiempo') || id.match(/mascotas.*cantidad/) || id.includes('tatuaje') || id.includes('alergia') || id.includes('fuma') || id.includes('toma') || id.includes('peso') || id.includes('altura') || id.includes('deporte') || id.includes('enfermedad') || id.includes('patologico') || id.includes('dental') || id.includes('aspecto') || id.match(/familiar.*empresa/) || id.match(/laborado.*empresa/) || id.includes('enteró_vacante') || id.includes('autodescripcion') || id.includes('meta') || id.match(/mas.*importante/)) return 'sec-entorno';
+
+  // 2. Datos Personales (Fallback)
+  return 'sec-personales';
 }
 
 function buildDynamicForm(template) {
@@ -500,10 +518,11 @@ function buildDynamicForm(template) {
 
     // Puesto tooltip
     let tooltipHtml = '';
-    if (field.id.includes('puesto')) {
+    // Solo agregar el tooltip especial de Puesto si es el campo general, no los laborales
+    if (field.id.toLowerCase() === 'puesto') {
       tooltipHtml = `
         <div class="tooltip-container" onclick="this.classList.toggle('active')">
-          <i data-lucide="help-circle" style="width:16px;height:16px;"></i>
+          <i data-lucide="help-circle" style="width:16px;height:16px; color:var(--color-primary);"></i>
           <div class="tooltip-content">Puesto al que concursa dentro del proceso de la empresa</div>
         </div>
       `;
@@ -531,7 +550,7 @@ function buildDynamicForm(template) {
         <textarea id="field-${field.id}" class="form-textarea" placeholder="${escapeHTML(formatLabel(field.placeholder))}" ${field.requerido ? 'required' : ''}></textarea>
       `;
     } else {
-      let iconName = 'help-circle';
+      let iconName = 'edit-2';
       if (field.tipo === 'tel') iconName = 'phone';
       else if (field.tipo === 'email') iconName = 'mail';
       else if (field.tipo === 'date') iconName = 'calendar';
