@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Estudios Socioeconómicos - Captura Inteligente</title>
+  
+  <!-- Tipografía Outfit de Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Iconos Lucide (para mantener consistencia premium minimalista) -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <!-- Estilos de la aplicación -->
+  <link rel="stylesheet" href="index.css">
+  
+  <!-- SDK de Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+  <!-- EFECTOS DE FONDO (DISEÑO AGENCIA GLOBAL) -->
+  <div class="bg-glow bg-glow-1"></div>
+  <div class="bg-glow bg-glow-2"></div>
+  <div class="bg-noise"></div>
+
+  <!-- CONTENEDOR PRINCIPAL SPA -->
+  <main class="app-container">
+
+    <!-- ======================================================================= -->
+    <!-- VISTA 1: BIENVENIDA (HOME) -->
+    <!-- ======================================================================= -->
+    <section id="view-welcome" class="view active">
+      <div class="card welcome-card animate-fade-in">
+        
+        <!-- Icono de avatar con SVG e iluminación interna -->
+        <div class="avatar-container">
+          <div class="avatar-glow"></div>
+          <svg class="avatar-svg" viewBox="0 0 100 100">
+            <defs>
+              <linearGradient id="avatarGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#ffffff" />
+                <stop offset="100%" stop-color="#cbd5e1" />
+              </linearGradient>
+            </defs>
+            <!-- Círculo cabeza -->
+            <circle cx="50" cy="35" r="16" fill="url(#avatarGrad)" />
+            <!-- Cuerpo silueta -->
+            <path d="M50,56 C30,56 18,68 18,80 C18,82 20,84 22,84 L78,84 C80,84 82,82 82,80 C82,68 70,56 50,56 Z" fill="url(#avatarGrad)" />
+          </svg>
+        </div>
+
+        <h1 class="app-title">
+          Estudios <br><span class="accent-text">Socioeconómicos</span>
+        </h1>
+        <p class="app-subtitle">Plataforma de gestión y captura móvil</p>
+
+        <div class="button-group">
+          <button id="btn-to-capture" class="btn btn-primary">
+            <i data-lucide="clipboard-signature"></i>
+            <span>Captura Visita</span>
+          </button>
+          <button id="btn-to-login" class="btn btn-secondary">
+            <i data-lucide="shield-alert"></i>
+            <span>Administrador</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================================================================= -->
+    <!-- VISTA 2: BÚSQUEDA DE EMPRESA (SEGURO SIN AUTOCOMPLETADO) -->
+    <!-- ======================================================================= -->
+    <section id="view-search" class="view">
+      <div class="card animate-slide-up">
+        <button class="btn-back" onclick="navigateTo('view-welcome')">
+          <i data-lucide="arrow-left"></i>
+          <span>Volver</span>
+        </button>
+
+        <div class="header-icon-circle">
+          <i data-lucide="building-2"></i>
+        </div>
+
+        <h2 class="section-title">Ingresar Empresa</h2>
+        <p class="section-subtitle">Por motivos de seguridad, escribe el nombre del cliente/empresa exacto para acceder.</p>
+
+        <div class="form-group">
+          <div class="input-wrapper">
+            <i data-lucide="search" class="input-icon"></i>
+            <input type="text" id="company-name-input" class="form-input" placeholder=" " autocomplete="off">
+            <label for="company-name-input" class="form-label">Nombre de la Empresa</label>
+          </div>
+          
+          <!-- Mensaje de Validación Dinámica -->
+          <div id="company-validation-msg" class="validation-message"></div>
+        </div>
+
+        <div class="button-group">
+          <button id="btn-verify-company" class="btn btn-primary">
+            <span>Verificar e Ingresar</span>
+            <i data-lucide="chevron-right"></i>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================================================================= -->
+    <!-- VISTA 3: FORMULARIO DINÁMICO DE CAPTURA -->
+    <!-- ======================================================================= -->
+    <section id="view-form" class="view">
+      <div class="form-card animate-fade-in">
+        
+        <!-- Barra superior del Formulario -->
+        <div class="form-nav-header">
+          <button class="btn-back-icon" id="btn-abort-form">
+            <i data-lucide="x"></i>
+          </button>
+          <div class="form-meta">
+            <span class="company-badge" id="form-company-badge">Empresa</span>
+            <span class="commercial-badge" id="form-brand-badge">Conexion Ejecutiva</span>
+          </div>
+          <div class="progress-container">
+            <div class="progress-bar" id="form-progress"></div>
+          </div>
+        </div>
+
+        <div class="form-scroll-body">
+          <h2 class="form-doc-title" id="form-title">Estudio Socioeconómico</h2>
+          <p class="form-doc-subtitle">Ingrese los datos correspondientes al candidato a visitar.</p>
+          
+          <!-- Input inicial del Candidato (Requerido para generar la estructura en Drive después) -->
+          <div class="card-inner-field">
+            <h3 class="inner-section-title">Datos del Candidato</h3>
+            <div class="form-group">
+              <div class="input-wrapper">
+                <i data-lucide="user" class="input-icon"></i>
+                <input type="text" id="candidate-name-input" class="form-input" placeholder=" " required>
+                <label for="candidate-name-input" class="form-label">Nombre del Candidato</label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Campos cargados dinámicamente -->
+          <form id="dynamic-capture-form" class="dynamic-fields-container">
+            <!-- Los campos inyectados irán aquí -->
+          </form>
+        </div>
+
+        <div class="form-footer-actions">
+          <button id="btn-submit-capture" class="btn btn-primary btn-full">
+            <i data-lucide="save"></i>
+            <span>Guardar Captura Final</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================================================================= -->
+    <!-- VISTA 4: LOGIN ADMINISTRADOR (SEGURO) -->
+    <!-- ======================================================================= -->
+    <section id="view-admin-login" class="view">
+      <div class="card animate-slide-up">
+        <button class="btn-back" onclick="navigateTo('view-welcome')">
+          <i data-lucide="arrow-left"></i>
+          <span>Volver</span>
+        </button>
+
+        <div class="header-icon-circle">
+          <i data-lucide="lock"></i>
+        </div>
+
+        <h2 class="section-title">Acceso Administrativo</h2>
+        <p class="section-subtitle">Ingrese sus credenciales de seguridad autorizadas.</p>
+
+        <div class="form-container-fields">
+          <div class="form-group">
+            <div class="input-wrapper">
+              <i data-lucide="user" class="input-icon"></i>
+              <input type="text" id="login-username" class="form-input" placeholder=" " autocomplete="off">
+              <label for="login-username" class="form-label">Usuario</label>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <div class="input-wrapper">
+              <i data-lucide="key-round" class="input-icon"></i>
+              <input type="password" id="login-password" class="form-input" placeholder=" ">
+              <label for="login-password" class="form-label">Contraseña</label>
+            </div>
+          </div>
+          
+          <div id="login-error-msg" class="validation-message error-state"></div>
+        </div>
+
+        <div class="button-group">
+          <button id="btn-execute-login" class="btn btn-primary btn-full">
+            <span>Iniciar Sesión</span>
+            <i data-lucide="log-in"></i>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================================================================= -->
+    <!-- VISTA 5: DASHBOARD ADMINISTRADOR (RESPONSIVO / ESCRITORIO OPTIMIZADO) -->
+    <!-- ======================================================================= -->
+    <section id="view-admin-dashboard" class="view">
+      <div class="dashboard-wrapper animate-fade-in">
+        
+        <!-- Barra de Navegación del Panel -->
+        <header class="dashboard-nav">
+          <div class="nav-brand">
+            <i data-lucide="layout-dashboard" class="brand-icon"></i>
+            <h2>Panel <span class="accent-text">Administración</span></h2>
+          </div>
+          <div class="nav-actions">
+            <span class="user-profile"><i data-lucide="user-check"></i> Conex.369</span>
+            <button id="btn-logout" class="btn-icon" title="Cerrar Sesión">
+              <i data-lucide="log-out"></i>
+            </button>
+          </div>
+        </header>
+
+        <!-- Contenido principal en Grid -->
+        <div class="dashboard-grid">
+          
+          <!-- Columna Izquierda: KPIs y Mapeo (Layout principal) -->
+          <div class="dashboard-main">
+            
+            <!-- TARJETAS DE KPIS PRINCIPALES -->
+            <div class="kpi-row">
+              <div class="kpi-card">
+                <div class="kpi-header">
+                  <span>Plantillas Sincronizadas</span>
+                  <div class="kpi-icon-wrapper"><i data-lucide="file-json"></i></div>
+                </div>
+                <h3 class="kpi-value" id="kpi-templates-count">0</h3>
+                <p class="kpi-change text-green"><i data-lucide="trending-up"></i> Desde Drive</p>
+              </div>
+
+              <div class="kpi-card">
+                <div class="kpi-header">
+                  <span>Capturas Realizadas</span>
+                  <div class="kpi-icon-wrapper"><i data-lucide="check-circle"></i></div>
+                </div>
+                <h3 class="kpi-value" id="kpi-captures-count">0</h3>
+                <p class="kpi-change"><i data-lucide="clock"></i> En la Web App</p>
+              </div>
+
+              <div class="kpi-card">
+                <div class="kpi-header">
+                  <span>Mapeos de Marca</span>
+                  <div class="kpi-icon-wrapper"><i data-lucide="git-branch"></i></div>
+                </div>
+                <h3 class="kpi-value" id="kpi-mappings-count">0</h3>
+                <p class="kpi-change text-cyan"><i data-lucide="sparkles"></i> Conexion/Recurso</p>
+              </div>
+            </div>
+
+            <!-- SECCIÓN: MAPEO DE MARCAS COMERCIALES -->
+            <div class="dashboard-card shadow-premium">
+              <div class="card-title-bar">
+                <div class="bar-title">
+                  <i data-lucide="git-compare"></i>
+                  <h3>Mapeo de Clientes a Marcas Comerciales</h3>
+                </div>
+                <button id="btn-open-mapping-modal" class="btn btn-secondary btn-sm">
+                  <i data-lucide="plus"></i> Nuevo Mapeo
+                </button>
+              </div>
+              <p class="card-desc">Asigne cada cliente a su respectivo nombre comercial para el direccionamiento y marca al finalizar los reportes.</p>
+
+              <!-- Tabla de Mapeos -->
+              <div class="table-responsive">
+                <table class="premium-table">
+                  <thead>
+                    <tr>
+                      <th>Cliente / Empresa</th>
+                      <th>Marca Comercial Asociada</th>
+                      <th class="text-right">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody id="mappings-table-body">
+                    <!-- Datos cargados dinámicamente -->
+                    <tr>
+                      <td colspan="3" class="text-center text-muted py-4">No hay mapeos de clientes registrados.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            
+          </div>
+
+          <!-- Columna Derecha: Resumen de Sincronización e Información del Sistema -->
+          <div class="dashboard-sidebar">
+            <div class="dashboard-card shadow-premium height-full">
+              <div class="bar-title mb-4">
+                <i data-lucide="database"></i>
+                <h3>Estado de Base de Datos</h3>
+              </div>
+
+              <div class="status-list">
+                <div class="status-item">
+                  <div class="status-label">Supabase URL</div>
+                  <div class="status-val text-truncate">https://mcdjysjrezxmghmvannh.supabase.co</div>
+                </div>
+                <div class="status-item">
+                  <div class="status-label">Drive ID Carpeta Raíz</div>
+                  <div class="status-val text-truncate">1T1V9Ps2YWoDEw_tRuaOs_RzlE2Aof...</div>
+                </div>
+                <div class="status-item">
+                  <div class="status-label">Carpeta Plantillas</div>
+                  <div class="status-val text-truncate">1M6naHKDM1HLCQvEbyq4tysiskXH...</div>
+                </div>
+              </div>
+
+              <div class="sidebar-info-banner mt-4">
+                <i data-lucide="info" class="banner-icon"></i>
+                <div class="banner-text">
+                  <strong>Ecosistema Activo:</strong> El frontend y backend se comunican 100% libre de Apps Script usando Supabase como canal centralizador y de seguridad.
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ======================================================================= -->
+    <!-- MODAL DE EDICIÓN / AGREGAR MAPEO DE MARCAS -->
+    <!-- ======================================================================= -->
+    <div id="mapping-modal" class="modal-overlay">
+      <div class="modal-card animate-slide-up">
+        <div class="modal-header">
+          <h3 id="modal-title-action">Agregar Mapeo de Marca</h3>
+          <button class="btn-close-modal" id="btn-close-mapping-modal">
+            <i data-lucide="x"></i>
+          </button>
+        </div>
+        
+        <form id="mapping-form" class="modal-form">
+          <input type="hidden" id="mapping-id">
+          
+          <div class="form-group">
+            <div class="input-wrapper">
+              <i data-lucide="user" class="input-icon"></i>
+              <input type="text" id="mapping-client-name" class="form-input" placeholder=" " required autocomplete="off">
+              <label for="mapping-client-name" class="form-label">Nombre del Cliente / Empresa</label>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-group-select-label">Marca Comercial Asociada</label>
+            <div class="select-wrapper">
+              <i data-lucide="award" class="select-icon"></i>
+              <select id="mapping-commercial-brand" class="form-select" required>
+                <option value="Conexion Ejecutiva">Conexion Ejecutiva</option>
+                <option value="Recurso Humano">Recurso Humano</option>
+                <option value="Nomipago">Nomipago</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="modal-footer-actions">
+            <button type="button" class="btn btn-secondary" id="btn-cancel-mapping">Cancelar</button>
+            <button type="submit" class="btn btn-primary">Guardar Mapeo</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Lógica de la aplicación -->
+  <script src="app.js"></script>
+</body>
+</html>
