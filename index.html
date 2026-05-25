@@ -38,18 +38,7 @@
         <!-- Icono de avatar con SVG e iluminación interna -->
         <div class="avatar-container">
           <div class="avatar-glow"></div>
-          <svg class="avatar-svg" viewBox="0 0 100 100">
-            <defs>
-              <linearGradient id="avatarGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#ffffff" />
-                <stop offset="100%" stop-color="#cbd5e1" />
-              </linearGradient>
-            </defs>
-            <!-- Círculo cabeza -->
-            <circle cx="50" cy="35" r="16" fill="url(#avatarGrad)" />
-            <!-- Cuerpo silueta -->
-            <path d="M50,56 C30,56 18,68 18,80 C18,82 20,84 22,84 L78,84 C80,84 82,82 82,80 C82,68 70,56 50,56 Z" fill="url(#avatarGrad)" />
-          </svg>
+          <i data-lucide="briefcase" class="avatar-svg" style="color: var(--color-primary-light);"></i>
         </div>
 
         <h1 class="app-title">
@@ -120,6 +109,7 @@
           </button>
           <div class="form-meta">
             <span class="company-badge" id="form-company-badge">Empresa</span>
+            <img id="form-brand-logo" src="" alt="Logo Comercial" style="height: 30px; object-fit: contain; margin-left: 10px; display: none;">
             <span class="commercial-badge" id="form-brand-badge">Conexion Ejecutiva</span>
           </div>
           <div class="progress-container">
@@ -217,6 +207,9 @@
             <h2>Panel <span class="accent-text">Administración</span></h2>
           </div>
           <div class="nav-actions">
+            <button class="btn btn-secondary btn-sm" onclick="navigateTo('view-welcome')" style="display: flex; align-items: center; gap: 6px; padding: 6px 12px;">
+              <i data-lucide="home" style="width: 14px; height: 14px;"></i> Inicio
+            </button>
             <span class="user-profile"><i data-lucide="user-check"></i> Conex.369</span>
             <button id="btn-logout" class="btn-icon" title="Cerrar Sesión">
               <i data-lucide="log-out"></i>

@@ -1093,12 +1093,44 @@ body {
    MEDIA QUERIES - ESCALABILIDAD PREMIUM A ESCRITORIO (ADMIN LAYOUT)
    ========================================================================== */
 
+/* LIGHT THEME EXCLUSIVE PARA ADMIN DASHBOARD */
+#view-admin-dashboard {
+  --bg-card: rgba(255, 255, 255, 0.95);
+  --color-text-main: #0f172a;
+  --color-text-muted: #475569;
+  --color-text-dark: #334155;
+  --border-card: rgba(0, 0, 0, 0.08);
+  --border-card-hover: rgba(0, 0, 0, 0.15);
+  background-color: #f1f5f9;
+  border-radius: var(--border-radius-lg);
+  color: var(--color-text-main);
+}
+
+#view-admin-dashboard .kpi-card,
+#view-admin-dashboard .dashboard-card,
+#view-admin-dashboard .user-profile,
+#view-admin-dashboard .btn-icon {
+  background: #ffffff;
+  color: var(--color-text-main);
+  border: 1px solid var(--border-card);
+}
+
+#view-admin-dashboard .premium-table th {
+  background: #f8fafc;
+  color: var(--color-text-muted);
+}
+
+#view-admin-dashboard .premium-table td {
+  border-bottom: 1px solid var(--border-card);
+}
+
 /* Cuando activamos el Dashboard, permitimos expandir el ancho */
 .app-container.dashboard-active {
   max-width: 1100px;
   align-items: flex-start;
   padding-top: 40px;
   padding-bottom: 40px;
+  background-color: #f1f5f9;
 }
 
 @media (min-width: 768px) {
