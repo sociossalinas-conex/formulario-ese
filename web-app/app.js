@@ -454,7 +454,7 @@ function buildDynamicForm(template) {
   // 3. Render Fields by Semantic Class
   schema.forEach(field => {
     if (config.hideFields !== false) {
-      if (field.id === 'fecha_solicitud' || field.id === 'resultado_final' || field.id === 'fecha_de_solicitud') {
+      if (field.id === 'fecha_solicitud' || field.id === 'resultado_final' || field.id === 'fecha_de_solicitud' || field.id.match(/fecha.*estudio/)) {
         return;
       }
     }
@@ -675,6 +675,34 @@ function setupProgressTracking(schema) {
 
     const percent = totalRequired > 0 ? Math.round((completedRequired / totalRequired) * 100) : 0;
     progressBar.style.width = `${percent}%`;
+
+    // Actualizar estado 'completed' de las pestañas del Wizard
+    WIZARD_SECTIONS.forEach((sec, idx) => {
+      const container = document.getElementById(`wizard-section-${idx}`);
+      const tab = document.querySelectorAll('.wizard-step-tab')[idx];
+      if (container && tab) {
+        // Verificar si hay al menos un campo lleno en esta sección
+        const inputs = container.querySelectorAll('input:not([type="hidden"]), select, textarea');
+        let hasData = false;
+        inputs.forEach(input => {
+          if (input.value && input.value.trim() !== '') hasData = true;
+        });
+        
+        if (hasData) {
+          tab.classList.add('completed');
+          // Añadir checkmark si no lo tiene
+          if (!tab.innerHTML.includes('lucide="check-circle"')) {
+            tab.innerHTML = `<i data-lucide="check-circle" style="width:14px; height:14px; color:var(--color-accent);"></i> ` + tab.innerHTML;
+            lucide.createIcons();
+          }
+        } else {
+          tab.classList.remove('completed');
+          // Remover checkmark si existe
+          const icon = tab.querySelector('.lucide-check-circle');
+          if (icon) icon.remove();
+        }
+      }
+    });
   };
 
   // Capitalización de Nombres Propios
