@@ -21,6 +21,11 @@
 </head>
 <body>
 
+  <!-- Switcher de Tema -->
+  <button id="theme-toggle" class="btn-icon" style="position: absolute; top: 20px; right: 20px; z-index: 100; border-radius: 50%; width: 40px; height: 40px; border: 1px solid var(--border-card); background: var(--bg-card); cursor: pointer; display: flex; justify-content: center; align-items: center; color: var(--color-text-main);">
+    <i data-lucide="moon" id="theme-icon"></i>
+  </button>
+
   <!-- EFECTOS DE FONDO (DISEÑO AGENCIA GLOBAL) -->
   <div class="bg-glow bg-glow-1"></div>
   <div class="bg-glow bg-glow-2"></div>
@@ -69,12 +74,13 @@
           <span>Volver</span>
         </button>
 
-        <div class="header-icon-circle">
-          <i data-lucide="building-2"></i>
+        <div class="auth-header" style="text-align: center; margin-bottom: 24px;">
+          <div class="brand-avatar" style="margin: 0 auto 16px auto; width: 64px; height: 64px; background: var(--color-primary-glow); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--color-primary);">
+            <i data-lucide="briefcase" style="width: 32px; height: 32px;"></i>
+          </div>
+          <h2 class="section-title">Ingresar Empresa</h2>
+          <p style="font-size: 0.9rem; color: var(--color-text-muted); margin-top: 8px;">Escribe el nombre del cliente/empresa exacto para acceder.</p>
         </div>
-
-        <h2 class="section-title">Ingresar Empresa</h2>
-        <p class="section-subtitle">Por motivos de seguridad, escribe el nombre del cliente/empresa exacto para acceder.</p>
 
         <div class="form-group">
           <div class="input-wrapper">
@@ -117,7 +123,15 @@
           </div>
         </div>
 
-        <div class="form-scroll-body">
+        <div class="form-scroll-body" id="dynamic-form-container">
+          <!-- Sticky Candidate Header -->
+          <div class="sticky-candidate-header" id="sticky-candidate-header">
+            <div class="sticky-candidate-name">
+              <i data-lucide="user"></i>
+              <span id="sticky-candidate-name-text">Nombre del Candidato</span>
+            </div>
+          </div>
+
           <h2 class="form-doc-title" id="form-title">Estudio Socioeconómico</h2>
           <p class="form-doc-subtitle">Ingrese los datos correspondientes al candidato a visitar.</p>
           
@@ -358,6 +372,25 @@
                 <option value="Nomipago">Nomipago</option>
               </select>
             </div>
+          </div>
+
+          <div class="card-inner-field" style="margin-bottom: 24px;">
+            <h4 style="font-size: 0.9rem; margin-bottom: 12px; color: var(--color-text-main);">Configuración Lógica del Formulario</h4>
+            
+            <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 0.9rem; color: var(--color-text-muted); cursor: pointer;">
+              <input type="checkbox" id="config-auto-date" checked>
+              Auto-completar "Fecha de Visita"
+            </label>
+
+            <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 0.9rem; color: var(--color-text-muted); cursor: pointer;">
+              <input type="checkbox" id="config-hide-fields" checked>
+              Ocultar "Fecha de Solicitud" y "Resultado Final"
+            </label>
+
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 0.9rem; color: var(--color-text-muted); cursor: pointer;">
+              <input type="checkbox" id="config-dynamic-demandas" checked>
+              Activar Lógica Especial para "Demandas"
+            </label>
           </div>
 
           <div class="modal-footer-actions">
