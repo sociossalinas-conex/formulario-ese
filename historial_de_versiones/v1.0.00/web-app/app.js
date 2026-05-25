@@ -5,10 +5,27 @@
  * Desarrollado por: Arquitecto de Software Senior y Desarrollador Full-Stack
  */
 
-// 1. Inicialización de Supabase Client con las credenciales del usuario
+// 1. Inicialización Resiliente de Supabase Client
 const SUPABASE_URL = "https://mcdjysjrezxmghmvannh.supabase.co";
 const SUPABASE_KEY = "sb_publishable_2zg1_mv94Gvpl8b3lZOvMQ_xRlrgrQS";
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+let supabase = null;
+
+function getSupabaseClient() {
+  if (supabase) return supabase;
+  
+  try {
+    if (window.supabase && typeof window.supabase.createClient === 'function') {
+      supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+      return supabase;
+    }
+  } catch (err) {
+    console.error("Error al inicializar el cliente de Supabase:", err);
+  }
+  return null;
+}
+
+// Intentar inicialización inmediata
+getSupabaseClient();
 
 // 2. Estado Global de la Aplicación
 let state = {
@@ -93,7 +110,10 @@ async function loadAdminData() {
   
   // 1. Obtener total de plantillas sincronizadas desde Supabase
   try {
-    const { data: templates, error } = await supabase
+    const client = getSupabaseClient();
+    if (!client) throw new Error("Base de datos inaccesible.");
+    
+    const { data: templates, error } = await client
       .from('socioeconomic_templates')
       .select('*');
       
@@ -117,7 +137,10 @@ async function loadAdminData() {
  */
 async function fetchClientMappings() {
   try {
-    const { data: dbMappings, error } = await supabase
+    const client = getSupabaseClient();
+    if (!client) throw new Error("Base de datos inaccesible.");
+
+    const { data: dbMappings, error } = await client
       .from('client_mappings')
       .select('*');
 
@@ -142,7 +165,10 @@ async function fetchClientMappings() {
  */
 async function fetchCapturesCount() {
   try {
-    const { count, error } = await supabase
+    const client = getSupabaseClient();
+    if (!client) throw new Error("Base de datos inaccesible.");
+
+    const { count, error } = await client
       .from('socioeconomic_captures')
       .select('*', { count: 'exact', head: true });
 
@@ -217,7 +243,13 @@ async function verifyAndLoadCompany() {
 
   try {
     // 1. Descargar plantillas actualizadas desde Supabase
-    const { data: dbTemplates, error } = await supabase
+    const client = getSupabaseClient();
+    if (!client) {
+      showValidationMessage(validationMsg, "Error: No se pudo cargar el servicio de Supabase.", "error-state");
+      return;
+    }
+
+    const { data: dbTemplates, error } = await client
       .from('socioeconomic_templates')
       .select('*');
 
@@ -264,9 +296,12 @@ async function verifyAndLoadCompany() {
 async function resolveCommercialBrand(clientName) {
   // Aseguramos tener los mapeos actualizados
   try {
-    const { data: dbMappings } = await supabase.from('client_mappings').select('*');
-    if (dbMappings) {
-      state.mappings = dbMappings;
+    const client = getSupabaseClient();
+    if (client) {
+      const { data: dbMappings } = await client.from('client_mappings').select('*');
+      if (dbMappings) {
+        state.mappings = dbMappings;
+      }
     }
   } catch (e) {}
 
@@ -433,7 +468,13 @@ async function submitCapturedForm() {
   console.log("Subiendo captura finalizada a Supabase...", payload);
 
   try {
-    const { data, error } = await supabase
+    const client = getSupabaseClient();
+    if (!client) {
+      alert("Error: El cliente de base de datos no está inicializado.");
+      return;
+    }
+
+    const { data, error } = await client
       .from('socioeconomic_captures')
       .insert(payload)
       .select();
@@ -497,6 +538,8 @@ document.getElementById('mapping-form').addEventListener('submit', async (e) => 
   };
 
   try {
+    const client = getSupabaseClient();
+    
     if (idVal) {
       // Editar existente en Supabase o local
       const idNum = parseInt(idVal);
@@ -506,10 +549,12 @@ document.getElementById('mapping-form').addEventListener('submit', async (e) => 
       }
       
       // Intentar actualizar en DB
-      await supabase
-        .from('client_mappings')
-        .update({ commercial_brand: commercialBrand })
-        .eq('id', idNum);
+      if (client) {
+        await client
+          .from('client_mappings')
+          .update({ commercial_brand: commercialBrand })
+          .eq('id', idNum);
+      }
         
     } else {
       // Agregar nuevo en Supabase o local
@@ -517,9 +562,11 @@ document.getElementById('mapping-form').addEventListener('submit', async (e) => 
       state.mappings.push({ id: newId, client_name: clientName, commercial_brand: commercialBrand });
       
       // Intentar insertar en DB
-      await supabase
-        .from('client_mappings')
-        .insert(payload);
+      if (client) {
+        await client
+          .from('client_mappings')
+          .insert(payload);
+      }
     }
   } catch (err) {
     console.warn("DB offline o tabla inexistente. Modificación realizada de forma local temporal.");
@@ -545,10 +592,13 @@ async function handleDeleteMapping(id) {
     state.mappings = state.mappings.filter(m => m.id !== id);
     
     try {
-      await supabase
-        .from('client_mappings')
-        .delete()
-        .eq('id', id);
+      const client = getSupabaseClient();
+      if (client) {
+        await client
+          .from('client_mappings')
+          .delete()
+          .eq('id', id);
+      }
     } catch (e) {}
 
     renderMappingsTable();

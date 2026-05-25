@@ -71,6 +71,7 @@ copy web-app\index.css historial_de_versiones\v1.0.00\web-app\ >nul
 copy web-app\app.js historial_de_versiones\v1.0.00\web-app\ >nul
 copy scripts_ejecucion\ejecutar_sincronizacion.bat historial_de_versiones\v1.0.00\scripts_ejecucion\ >nul
 copy scripts_ejecucion\subir_a_github.bat historial_de_versiones\v1.0.00\scripts_ejecucion\ >nul
+copy scripts_ejecucion\ejecutar_servidor_local.bat historial_de_versiones\v1.0.00\scripts_ejecucion\ >nul
 
 echo [OK] Snapshot v1.0.00 completado con exito.
 echo.
