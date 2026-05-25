@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Estudio Socioeconómico</title>
+  
+  <!-- Capturador de errores global para diagnóstico -->
+  <script>
+    window.onerror = function(msg, url, line, col, error) {
+      alert("Error en el navegador:\n" + msg + "\n\nArchivo: " + url + "\nLínea: " + line + "\nColumna: " + col);
+      return false;
+    };
+  </script>
+  
+  <!-- Preconnect and Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Estilos (Inyectados por Apps Script) -->
+  <?!= include('Styles'); ?>
+</head>
+<body>
+
+  <!-- LOADING OVERLAY (Bloquea UI con glassmorphism) -->
+  <div id="loading-overlay" class="active">
+    <div class="loading-content">
+      <div class="spinner"></div>
+      <p id="loading-message">Iniciando sistema...</p>
+    </div>
+  </div>
+
+  <!-- HEADER PERSISTENTE (Sticky top) -->
+  <header id="app-header" style="display:none;">
+    <div class="header-container">
+      <div class="header-titles">
+        <h1 class="brand-title">Conexión Ejecutiva</h1>
+        <h2 id="header-candidate" class="candidate-name">Cargando...</h2>
+      </div>
+      <div id="header-study-id" class="study-id-badge">ID: --</div>
+    </div>
+  </header>
+
+  <main class="app-container">
+
+    <!-- PANTALLA 1: SELECCIÓN DE CLIENTE -->
+    <div id="screen-client" class="screen active">
+      <div class="client-select-card glass-card">
+        
+        <div class="logo-area">
+          <div class="logo-circle">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+              <circle cx="9" cy="7" r="4"></circle>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+          </div>
+          <h2>Estudios Socioeconómicos</h2>
+          <p class="subtitle">Plataforma de captura móvil</p>
+        </div>
+        
+        <div class="form-group mt-4">
+          <label class="form-label" for="client-input">Ingrese el Cliente Contratante</label>
+          <div class="input-wrapper">
+            <input type="text" id="client-input" class="form-input custom-input" placeholder="Ej. Reclutamiento Operaciones">
+          </div>
+          <div id="client-feedback" style="margin-top: 8px; font-weight: 500; font-size: 0.9em;"></div>
+        </div>
+        
+        <button id="btn-start" class="btn btn-primary btn-block btn-lg mt-4" disabled>
+          Iniciar Nuevo Estudio
+        </button>
+        
+      </div>
+    </div>
+
+    <!-- PANTALLA 2: WIZARD DE CAPTURA -->
+    <div id="screen-wizard" class="screen">
+      
+      <!-- Progress Indicator -->
+      <div class="wizard-progress-container">
+        <div class="wizard-progress-track">
+          <div id="wizard-progress-bar" class="wizard-progress-bar"></div>
+        </div>
+        <div class="wizard-steps-text">
+          <span>Paso <span id="wizard-step-indicator">1</span></span>
+        </div>
+      </div>
+      
+      <!-- Contenedor dinámico de campos -->
+      <div id="wizard-content" class="wizard-content slide-in-right">
+        <!-- Generado vía JS FormEngine -->
+      </div>
+      
+      <!-- Navegación Fixed Bottom -->
+      <div id="wizard-nav" class="wizard-nav glass-nav">
+        <button id="btn-prev" class="btn btn-secondary btn-nav" onclick="WizardController.prev()">
+          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+          Anterior
+        </button>
+        <button id="btn-next" class="btn btn-primary btn-nav" onclick="WizardController.next()">
+          Siguiente
+          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+        </button>
+      </div>
+      
+    </div>
+
+  </main>
+
+  <!-- TOAST NOTIFICATIONS CONTAINER -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- INCLUDES -->
+  <?!= include('ValidationService'); ?>
+  <?!= include('Script'); ?>
+
+</body>
+</html>

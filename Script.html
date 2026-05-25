@@ -1,0 +1,377 @@
+<script>
+/**
+ * Script.html
+ * Lógica principal del Frontend (Motor de Formularios, Wizard y Negocio)
+ */
+
+var AppState = {
+  clienteId: null,
+  clienteNombre: '',
+  formData: {},
+  sections: [],
+  photos: { interior: null, exterior: null, visitador: null }
+};
+
+/**
+ * ==========================================
+ * UI Helpers
+ * ==========================================
+ */
+var UIHelpers = {
+  showLoading: function(message) {
+    var overlay = document.getElementById('loading-overlay');
+    var msgEl = document.getElementById('loading-message');
+    if (msgEl) msgEl.innerText = message || 'Cargando sistema...';
+    if (overlay) overlay.classList.add('active');
+  },
+  hideLoading: function() {
+    var overlay = document.getElementById('loading-overlay');
+    if (overlay) overlay.classList.remove('active');
+  },
+  showToast: function(message, type) {
+    var container = document.getElementById('toast-container');
+    if (!container) return;
+    
+    var toast = document.createElement('div');
+    toast.className = 'toast ' + (type || 'info');
+    toast.innerText = message;
+    
+    container.appendChild(toast);
+    
+    // Animate in
+    setTimeout(function() { toast.style.transform = 'translateY(0)'; toast.style.opacity = '1'; }, 10);
+    
+    // Remove after 3 seconds
+    setTimeout(function() {
+      toast.style.transform = 'translateY(100%)';
+      toast.style.opacity = '0';
+      setTimeout(function() { toast.remove(); }, 300);
+    }, 3000);
+  },
+  scrollToTop: function() {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+};
+
+/**
+ * ==========================================
+ * Business Logic
+ * ==========================================
+ */
+var BusinessLogic = {
+  generateStudyId: function(clientName) {
+    var meses = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
+    var now = new Date();
+    var prefix = String(clientName).substring(0,3).toUpperCase() || 'CLI';
+    var d = ('0' + now.getDate()).slice(-2);
+    return prefix + '-' + d + '-' + meses[now.getMonth()] + '-' + now.getFullYear() + '-' + Math.floor(Math.random()*900+100);
+  },
+  
+  suggestCurpRfc: function() {
+    var datos = {
+      nombre_completo: document.getElementById('nombre_completo') ? document.getElementById('nombre_completo').value : '',
+      fecha_nacimiento: document.getElementById('fecha_nacimiento') ? document.getElementById('fecha_nacimiento').value : '',
+      lugar_nacimiento: document.getElementById('lugar_nacimiento') ? document.getElementById('lugar_nacimiento').value : '',
+      sexo: document.getElementById('sexo') ? document.getElementById('sexo').value : ''
+    };
+    
+    if (datos.nombre_completo && datos.fecha_nacimiento) {
+      google.script.run.withSuccessHandler(function(res) {
+        if (res.curp && document.getElementById('curp') && !document.getElementById('curp').value) {
+            document.getElementById('curp').value = res.curp;
+        }
+        if (res.rfc && document.getElementById('rfc') && !document.getElementById('rfc').value) {
+            document.getElementById('rfc').value = res.rfc;
+        }
+        if (res.edad && document.getElementById('edad') && !document.getElementById('edad').value) {
+            document.getElementById('edad').value = res.edad;
+        }
+      }).suggestCurpRfc(datos);
+    }
+  },
+
+  getParentescoOptions: function(genero) {
+    var g = String(genero).toUpperCase();
+    if (g === 'FEMENINO' || g === 'MUJER') {
+      return ['Esposa', 'Hermana', 'Hija', 'Madre', 'Suegra', 'Cuñada', 'Tía', 'Abuela', 'Prima', 'Otra'];
+    } else if (g === 'MASCULINO' || g === 'HOMBRE') {
+      return ['Esposo', 'Hermano', 'Hijo', 'Padre', 'Suegro', 'Cuñado', 'Tío', 'Abuelo', 'Primo', 'Otro'];
+    }
+    return ['Esposo/a', 'Hermano/a', 'Hijo/a', 'Padre/Madre', 'Otro'];
+  }
+};
+
+/**
+ * ==========================================
+ * Form Engine (Renderizado Dinámico)
+ * ==========================================
+ */
+var FormEngine = {
+  renderField: function(config) {
+    if (!config || !config.id) return '';
+    
+    var reqClass = config.obligatorio ? 'required' : '';
+    var reqAttr = config.obligatorio ? 'required' : '';
+    var placeholder = config.placeholder || '';
+    var ayuda = config.ayuda ? '<div class="help-text">' + config.ayuda + '</div>' : '';
+    var val = AppState.formData[config.id] || '';
+    var configJson = JSON.stringify(config).replace(/"/g, '&quot;');
+    
+    var html = '<div class="form-group">';
+    html += '<label class="form-label ' + reqClass + '" for="' + config.id + '">' + config.pregunta + '</label>';
+    
+    // Manejar por tipo
+    if (config.tipo_input === 'select' || config.tipo_input === 'select_owner') {
+      html += '<select id="' + config.id + '" name="' + config.id + '" class="form-select" data-field-config="' + configJson + '" ' + reqAttr + '>';
+      html += '<option value="">-- Seleccione --</option>';
+      if (config.opciones && config.opciones.length > 0) {
+        config.opciones.forEach(function(op) {
+           var sel = (val === op) ? 'selected' : '';
+           html += '<option value="' + op + '" ' + sel + '>' + op + '</option>';
+        });
+      }
+      html += '</select>';
+    } 
+    else if (config.tipo_input === 'textarea') {
+      html += '<textarea id="' + config.id + '" name="' + config.id + '" class="form-textarea" placeholder="' + placeholder + '" data-field-config="' + configJson + '" ' + reqAttr + '>' + val + '</textarea>';
+    }
+    else {
+      var type = 'text';
+      var cls = 'form-input';
+      if (config.tipo_input === 'tel') type = 'tel';
+      if (config.tipo_input === 'email') type = 'email';
+      if (config.tipo_input === 'date') type = 'date';
+      if (config.tipo_input === 'number') type = 'number';
+      
+      html += '<input type="' + type + '" id="' + config.id + '" name="' + config.id + '" class="' + cls + '" value="' + val + '" placeholder="' + placeholder + '" data-field-config="' + configJson + '" ' + reqAttr + '>';
+    }
+    
+    html += ayuda;
+    html += '</div>';
+    return html;
+  },
+
+  renderSection: function(sectionConfig) {
+    var html = '<div class="section-card">';
+    html += '<h2 class="section-title">' + sectionConfig.name + '</h2>';
+    
+    // Si es sección especial, renderizar su contenedor específico
+    if (sectionConfig.name === 'Entorno Familiar') {
+       // html += this.renderFamilySection(sectionConfig.fields);
+    }
+    
+    // Renderizado estándar por ahora
+    sectionConfig.fields.forEach(function(f) {
+       html += FormEngine.renderField(f);
+    });
+    
+    html += '</div>';
+    return html;
+  }
+};
+
+/**
+ * ==========================================
+ * Wizard Controller
+ * ==========================================
+ */
+var WizardController = {
+  currentIndex: 0,
+  
+  init: function(clienteId, clienteNombre) {
+    UIHelpers.showLoading('Obteniendo configuración...');
+    AppState.clienteId = clienteId;
+    AppState.clienteNombre = clienteNombre;
+    
+    // Inicializar ID y UI
+    AppState.formData.id_estudio = BusinessLogic.generateStudyId(clienteNombre);
+    document.getElementById('header-study-id').innerText = 'ID: ' + AppState.formData.id_estudio;
+    document.getElementById('header-candidate').innerText = clienteNombre;
+    
+    google.script.run.withSuccessHandler(function(config) {
+      if (!config || !config.sections || config.sections.length === 0) {
+        UIHelpers.showToast("No hay configuración para este cliente", "error");
+        UIHelpers.hideLoading();
+        return;
+      }
+      
+      AppState.sections = config.sections;
+      
+      // Construir nav de progreso (simplificado)
+      var pBar = document.getElementById('wizard-progress');
+      pBar.innerHTML = ''; // Limpiar
+      
+      // Mostrar Wizard
+      document.getElementById('screen-client').classList.remove('active');
+      document.getElementById('screen-wizard').classList.add('active');
+      document.getElementById('app-header').style.display = 'block';
+      
+      WizardController.currentIndex = 0;
+      WizardController.renderCurrentSection();
+      UIHelpers.hideLoading();
+      
+    }).withFailureHandler(function(e) {
+      UIHelpers.showToast("Error de red", "error");
+      UIHelpers.hideLoading();
+    }).getFormConfiguration(clienteId);
+  },
+
+  renderCurrentSection: function() {
+    var section = AppState.sections[this.currentIndex];
+    var container = document.getElementById('wizard-content');
+    
+    // Render HTML
+    container.innerHTML = FormEngine.renderSection(section);
+    
+    // Attach validations
+    if (typeof ValidationService !== 'undefined') {
+       ValidationService.attachLiveValidation(container);
+    }
+    
+    // Hook especial para sugerir CURP al salir de campos clave
+    var inputFecha = document.getElementById('fecha_nacimiento');
+    var inputNombre = document.getElementById('nombre_completo');
+    if (inputFecha) inputFecha.addEventListener('blur', BusinessLogic.suggestCurpRfc);
+    if (inputNombre) inputNombre.addEventListener('blur', BusinessLogic.suggestCurpRfc);
+    
+    // Update Nav
+    document.getElementById('btn-prev').disabled = (this.currentIndex === 0);
+    document.getElementById('wizard-step-indicator').innerText = (this.currentIndex + 1) + ' / ' + AppState.sections.length;
+    
+    if (this.currentIndex === AppState.sections.length - 1) {
+      document.getElementById('btn-next').innerText = 'Revisar y Enviar';
+      document.getElementById('btn-next').className = 'btn btn-success';
+    } else {
+      document.getElementById('btn-next').innerText = 'Siguiente →';
+      document.getElementById('btn-next').className = 'btn btn-primary';
+    }
+    
+    UIHelpers.scrollToTop();
+  },
+
+  collectData: function() {
+    var inputs = document.getElementById('wizard-content').querySelectorAll('input, select, textarea');
+    inputs.forEach(function(inp) {
+      if (inp.id) {
+        if (inp.type === 'checkbox') {
+          AppState.formData[inp.id] = inp.checked;
+        } else {
+          AppState.formData[inp.id] = inp.value;
+        }
+        
+        // Actualizar header si es el nombre del candidato
+        if (inp.id === 'nombre_completo') {
+           document.getElementById('header-candidate').innerText = inp.value;
+        }
+      }
+    });
+  },
+
+  next: function() {
+    this.collectData();
+    
+    // Validate (Simplificado para el prompt, ValidationService lo haría más robusto)
+    if (typeof ValidationService !== 'undefined') {
+      var validation = ValidationService.validateSection(document.getElementById('wizard-content'));
+      if (!validation.valid) {
+         UIHelpers.showToast("Por favor complete los campos obligatorios", "error");
+         return;
+      }
+    }
+    
+    if (this.currentIndex < AppState.sections.length - 1) {
+      this.currentIndex++;
+      this.renderCurrentSection();
+    } else {
+      this.submitStudy();
+    }
+  },
+
+  prev: function() {
+    this.collectData();
+    if (this.currentIndex > 0) {
+      this.currentIndex--;
+      this.renderCurrentSection();
+    }
+  },
+  
+  submitStudy: function() {
+    UIHelpers.showLoading('Guardando estudio final...');
+    AppState.formData.cliente_id = AppState.clienteId;
+    
+    google.script.run.withSuccessHandler(function(res) {
+      if (res.success) {
+        UIHelpers.showToast("Estudio guardado exitosamente", "success");
+        // Redirección final segura (no mostrar link al usuario)
+        setTimeout(function() {
+           window.top.location.href = 'https://www.conexion-ejecutiva.com';
+        }, 1500);
+      } else {
+        UIHelpers.hideLoading();
+        UIHelpers.showToast("Error guardando: " + res.error, "error");
+      }
+    }).withFailureHandler(function(e) {
+      UIHelpers.hideLoading();
+      UIHelpers.showToast("Error de conexión", "error");
+    }).saveStudy(AppState.formData);
+  }
+};
+
+/**
+ * ==========================================
+ * Initialization
+ * ==========================================
+ */
+document.addEventListener('DOMContentLoaded', function() {
+  UIHelpers.showLoading('Conectando...');
+  
+  // Load Clients
+  google.script.run.withSuccessHandler(function(clientes) {
+    var input = document.getElementById('client-input');
+    var btn = document.getElementById('btn-start');
+    var feedback = document.getElementById('client-feedback');
+    var selectedClient = null;
+    
+    function validateClient() {
+      var val = input.value.trim().toLowerCase();
+      selectedClient = null;
+      
+      if (val === '') {
+        btn.disabled = true;
+        feedback.innerText = '';
+        return;
+      }
+      
+      for (var i = 0; i < clientes.length; i++) {
+        if (clientes[i].nombre.toLowerCase() === val) {
+          selectedClient = clientes[i];
+          break;
+        }
+      }
+      
+      if (selectedClient) {
+        btn.disabled = false;
+        feedback.innerText = 'El nombre del cliente es correcto.';
+        feedback.style.color = 'var(--accent-secondary, #00e5a0)';
+      } else {
+        btn.disabled = true;
+        feedback.innerText = 'Cliente no encontrado.';
+        feedback.style.color = 'var(--accent-danger, #ff4757)';
+      }
+    }
+    
+    input.addEventListener('input', validateClient);
+    
+    btn.addEventListener('click', function() {
+      if (selectedClient) {
+        WizardController.init(selectedClient.id, selectedClient.nombre);
+      }
+    });
+    
+    UIHelpers.hideLoading();
+  }).withFailureHandler(function(e) {
+    UIHelpers.hideLoading();
+    UIHelpers.showToast("Error al cargar clientes", "error");
+  }).getClientList();
+});
+</script>

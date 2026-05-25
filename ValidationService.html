@@ -1,0 +1,455 @@
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   VALIDATION SERVICE
+   Normalization, Validation, Live Rules, Error Display
+   ═══════════════════════════════════════════════════════════════ */
+var ValidationService = {
+
+  /* ─── Normalization ────────────────────────────────────────── */
+
+  /**
+   * Proper sentence case: 'juan PÉREZ lópez' → 'Juan Pérez López'
+   */
+  toProperSentence: function(str) {
+    if (!str || typeof str !== 'string') return '';
+    return str
+      .toLowerCase()
+      .replace(/(?:^|\s)\S/g, function(c) { return c.toUpperCase(); })
+      .replace(/\s+/g, ' ')
+      .trim();
+  },
+
+  /**
+   * Uppercase strict: remove extra spaces, uppercase — for CURP/RFC/NSS
+   */
+  toUpperStrict: function(str) {
+    if (!str || typeof str !== 'string') return '';
+    return str.replace(/\s+/g, '').toUpperCase();
+  },
+
+  /**
+   * Digits only: remove all non-digit characters — for phones
+   */
+  digitsOnly: function(str) {
+    if (!str || typeof str !== 'string') return '';
+    return str.replace(/[^\d]/g, '');
+  },
+
+  /**
+   * Format number as currency: 1234.56 → '$1,234.56'
+   */
+  formatCurrency: function(num) {
+    if (num === null || num === undefined || num === '') return '';
+    var n = parseFloat(String(num).replace(/[^0-9.\-]/g, ''));
+    if (isNaN(n)) return '';
+    return '$' + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  },
+
+  /**
+   * Parse currency string: '$1,234.56' → 1234.56
+   */
+  parseCurrency: function(str) {
+    if (!str || typeof str !== 'string') return 0;
+    var cleaned = str.replace(/[^0-9.\-]/g, '');
+    var val = parseFloat(cleaned);
+    return isNaN(val) ? 0 : val;
+  },
+
+  /* ─── Validation Functions ─────────────────────────────────── */
+
+  /**
+   * Validate required field
+   */
+  validateRequired: function(value, fieldName) {
+    var v = (value || '').toString().trim();
+    if (!v) {
+      return { valid: false, message: (fieldName || 'Este campo') + ' es obligatorio' };
+    }
+    return { valid: true, message: '' };
+  },
+
+  /**
+   * Validate email format
+   */
+  validateEmail: function(value) {
+    if (!value || !value.trim()) return { valid: true, message: '' };
+    var re = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
+    if (!re.test(value.trim())) {
+      return { valid: false, message: 'Ingrese un correo electrónico válido' };
+    }
+    return { valid: true, message: '' };
+  },
+
+  /**
+   * Validate phone: exactly 10 digits
+   */
+  validatePhone: function(value) {
+    if (!value || !value.trim()) return { valid: true, message: '' };
+    var digits = this.digitsOnly(value);
+    if (digits.length !== 10) {
+      return { valid: false, message: 'El teléfono debe tener 10 dígitos (' + digits.length + '/10)' };
+    }
+    return { valid: true, message: '' };
+  },
+
+  /**
+   * Validate CURP: 18 chars, pattern AAAA000000AAAAAA00
+   */
+  validateCURP: function(value) {
+    if (!value || !value.trim()) return { valid: true, message: '' };
+    var v = this.toUpperStrict(value);
+    if (v.length !== 18) {
+      return { valid: false, message: 'La CURP debe tener 18 caracteres (' + v.length + '/18)' };
+    }
+    var re = /^[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]\d$/;
+    if (!re.test(v)) {
+      return { valid: false, message: 'Formato de CURP inválido' };
+    }
+    return { valid: true, message: '' };
+  },
+
+  /**
+   * Validate RFC: 13 chars for persona física
+   */
+  validateRFC: function(value) {
+    if (!value || !value.trim()) return { valid: true, message: '' };
+    var v = this.toUpperStrict(value);
+    if (v.length !== 13) {
+      return { valid: false, message: 'El RFC debe tener 13 caracteres (' + v.length + '/13)' };
+    }
+    var re = /^[A-ZÑ&]{4}\d{6}[A-Z0-9]{3}$/;
+    if (!re.test(v)) {
+      return { valid: false, message: 'Formato de RFC inválido' };
+    }
+    return { valid: true, message: '' };
+  },
+
+  /**
+   * Validate NSS: exactly 11 digits
+   */
+  validateNSS: function(value) {
+    if (!value || !value.trim()) return { valid: true, message: '' };
+    var digits = this.digitsOnly(value);
+    if (digits.length !== 11) {
+      return { valid: false, message: 'El NSS debe tener 11 dígitos (' + digits.length + '/11)' };
+    }
+    return { valid: true, message: '' };
+  },
+
+  /* ─── Input Rules ──────────────────────────────────────────── */
+
+  /**
+   * Apply live input rules based on field config
+   */
+  applyInputRules: function(inputElement, fieldConfig) {
+    if (!inputElement || !fieldConfig) return;
+
+    var self = this;
+    var tipo = (fieldConfig.tipo_input || '').toLowerCase();
+    var fieldId = (fieldConfig.id || '').toLowerCase();
+
+    // ── text: proper sentence case on blur ──
+    if (tipo === 'text' && fieldId.indexOf('curp') === -1 && fieldId.indexOf('rfc') === -1 && fieldId.indexOf('nss') === -1) {
+      inputElement.addEventListener('blur', function() {
+        if (this.value.trim()) {
+          this.value = self.toProperSentence(this.value);
+        }
+      });
+    }
+
+    // ── text_upper (CURP, RFC, NSS): uppercase, strip spaces in real-time ──
+    if (tipo === 'text_upper' || fieldId.indexOf('curp') !== -1 || fieldId.indexOf('rfc') !== -1) {
+      inputElement.addEventListener('input', function() {
+        var pos = this.selectionStart;
+        var before = this.value.length;
+        this.value = self.toUpperStrict(this.value);
+        var after = this.value.length;
+        var newPos = pos - (before - after);
+        this.setSelectionRange(newPos, newPos);
+      });
+
+      // Validate on blur
+      inputElement.addEventListener('blur', function() {
+        if (!this.value.trim()) { self.clearFieldError(this); return; }
+        var result;
+        if (fieldId.indexOf('curp') !== -1) result = self.validateCURP(this.value);
+        else if (fieldId.indexOf('rfc') !== -1) result = self.validateRFC(this.value);
+        else if (fieldId.indexOf('nss') !== -1) result = self.validateNSS(this.value);
+        if (result && !result.valid) {
+          self.showFieldError(this, result.message);
+        } else {
+          self.clearFieldError(this);
+        }
+      });
+    }
+
+    // ── NSS specific ──
+    if (fieldId.indexOf('nss') !== -1 && tipo !== 'text_upper') {
+      inputElement.addEventListener('input', function() {
+        this.value = self.digitsOnly(this.value).substring(0, 11);
+      });
+      inputElement.addEventListener('blur', function() {
+        if (!this.value.trim()) { self.clearFieldError(this); return; }
+        var result = self.validateNSS(this.value);
+        if (!result.valid) self.showFieldError(this, result.message);
+        else self.clearFieldError(this);
+      });
+    }
+
+    // ── tel: digits only, max 10 ──
+    if (tipo === 'tel') {
+      inputElement.addEventListener('input', function() {
+        this.value = self.digitsOnly(this.value).substring(0, 10);
+      });
+      inputElement.addEventListener('blur', function() {
+        if (!this.value.trim()) { self.clearFieldError(this); return; }
+        var result = self.validatePhone(this.value);
+        if (!result.valid) self.showFieldError(this, result.message);
+        else self.clearFieldError(this);
+      });
+      inputElement.setAttribute('inputmode', 'tel');
+      inputElement.setAttribute('maxlength', '10');
+    }
+
+    // ── currency: format on blur ──
+    if (tipo === 'currency') {
+      inputElement.addEventListener('focus', function() {
+        var raw = self.parseCurrency(this.value);
+        this.value = raw > 0 ? raw.toString() : '';
+      });
+      inputElement.addEventListener('blur', function() {
+        if (this.value.trim()) {
+          var num = parseFloat(this.value.replace(/[^0-9.\-]/g, ''));
+          if (!isNaN(num)) {
+            this.value = num.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+          }
+        }
+      });
+      inputElement.addEventListener('input', function() {
+        this.value = this.value.replace(/[^0-9.]/g, '');
+      });
+      inputElement.setAttribute('inputmode', 'decimal');
+    }
+
+    // ── email: validate on blur ──
+    if (tipo === 'email') {
+      inputElement.addEventListener('blur', function() {
+        if (!this.value.trim()) { self.clearFieldError(this); return; }
+        var result = self.validateEmail(this.value);
+        if (!result.valid) self.showFieldError(this, result.message);
+        else self.clearFieldError(this);
+      });
+      inputElement.setAttribute('inputmode', 'email');
+      inputElement.setAttribute('autocapitalize', 'none');
+    }
+
+    // ── number: restrict to digits and decimal ──
+    if (tipo === 'number') {
+      inputElement.addEventListener('input', function() {
+        this.value = this.value.replace(/[^0-9.]/g, '');
+      });
+      inputElement.setAttribute('inputmode', 'numeric');
+    }
+
+    // ── date: native date picker ──
+    if (tipo === 'date') {
+      inputElement.setAttribute('type', 'date');
+    }
+
+    // ── Clear error on input ──
+    inputElement.addEventListener('input', function() {
+      self.clearFieldError(this);
+    });
+  },
+
+  /* ─── Finado Logic ─────────────────────────────────────────── */
+
+  /**
+   * Handle finado toggle: disable/enable dependent fields
+   */
+  handleFinadoToggle: function(familiarContainer, isFinado) {
+    if (!familiarContainer) return;
+
+    var dependentIds = ['telefono', 'ocupacion', 'edad', 'domicilio', 'celular'];
+    var groups = familiarContainer.querySelectorAll('.form-group');
+
+    groups.forEach(function(group) {
+      var input = group.querySelector('.form-input, .form-select, .form-textarea');
+      if (!input) return;
+      var inputId = (input.getAttribute('data-field-key') || input.id || '').toLowerCase();
+      
+      var isDependent = dependentIds.some(function(dep) {
+        return inputId.indexOf(dep) !== -1;
+      });
+
+      if (isDependent) {
+        if (isFinado) {
+          group.classList.add('finado-active');
+          input.disabled = true;
+          input.value = '';
+        } else {
+          group.classList.remove('finado-active');
+          input.disabled = false;
+        }
+      }
+    });
+  },
+
+  /* ─── Attach Live Validation to Container ──────────────────── */
+
+  /**
+   * Find all form elements in container and attach rules
+   */
+  attachLiveValidation: function(container) {
+    if (!container) return;
+    var self = this;
+
+    var inputs = container.querySelectorAll('.form-input, .form-select, .form-textarea');
+    inputs.forEach(function(input) {
+      var configAttr = input.getAttribute('data-field-config');
+      if (configAttr) {
+        try {
+          var cfg = JSON.parse(configAttr);
+          self.applyInputRules(input, cfg);
+        } catch (e) {
+          console.warn('Invalid field config JSON on:', input.id, e);
+        }
+      }
+    });
+
+    // Attach finado checkboxes
+    var finadoBoxes = container.querySelectorAll('.finado-checkbox');
+    finadoBoxes.forEach(function(cb) {
+      cb.addEventListener('change', function() {
+        var row = this.closest('.dynamic-row');
+        if (row) {
+          self.handleFinadoToggle(row, this.checked);
+        }
+      });
+    });
+  },
+
+  /* ─── Section Validation ───────────────────────────────────── */
+
+  /**
+   * Validate all required fields in a container
+   * Returns { valid: bool, errors: [{field, message}] }
+   */
+  validateSection: function(container) {
+    if (!container) return { valid: true, errors: [] };
+    var self = this;
+    var errors = [];
+
+    self.clearAllErrors(container);
+
+    var inputs = container.querySelectorAll('.form-input, .form-select, .form-textarea');
+    inputs.forEach(function(input) {
+      var isRequired = input.hasAttribute('required') || input.classList.contains('required');
+      var value = input.value ? input.value.trim() : '';
+      var fieldName = '';
+      var label = null;
+
+      // Find label
+      var group = input.closest('.form-group');
+      if (group) {
+        label = group.querySelector('.form-label');
+        if (label) fieldName = label.textContent.replace('*', '').trim();
+      }
+
+      // Required check
+      if (isRequired && !value) {
+        errors.push({ field: input.id || input.name, message: fieldName + ' es obligatorio' });
+        self.showFieldError(input, fieldName + ' es obligatorio');
+        return;
+      }
+
+      if (!value) return;
+
+      // Type-specific validation
+      var configAttr = input.getAttribute('data-field-config');
+      if (configAttr) {
+        try {
+          var cfg = JSON.parse(configAttr);
+          var tipo = (cfg.tipo_input || '').toLowerCase();
+          var fieldId = (cfg.id || '').toLowerCase();
+          var result;
+
+          if (tipo === 'email') {
+            result = self.validateEmail(value);
+          } else if (tipo === 'tel') {
+            result = self.validatePhone(value);
+          } else if (fieldId.indexOf('curp') !== -1) {
+            result = self.validateCURP(value);
+          } else if (fieldId.indexOf('rfc') !== -1) {
+            result = self.validateRFC(value);
+          } else if (fieldId.indexOf('nss') !== -1) {
+            result = self.validateNSS(value);
+          }
+
+          if (result && !result.valid) {
+            errors.push({ field: input.id || input.name, message: result.message });
+            self.showFieldError(input, result.message);
+          }
+        } catch (e) { /* skip */ }
+      }
+    });
+
+    // Also validate radio groups that are required
+    var radioGroups = container.querySelectorAll('.radio-group[data-required="true"]');
+    radioGroups.forEach(function(rg) {
+      var name = rg.getAttribute('data-name');
+      var checked = rg.querySelector('input[type="radio"]:checked');
+      if (!checked) {
+        var label = rg.getAttribute('data-label') || name || 'Este campo';
+        errors.push({ field: name, message: label + ' es obligatorio' });
+        var errEl = rg.parentElement ? rg.parentElement.querySelector('.error-message') : null;
+        if (errEl) {
+          errEl.textContent = label + ' es obligatorio';
+          errEl.classList.add('visible');
+        }
+      }
+    });
+
+    return { valid: errors.length === 0, errors: errors };
+  },
+
+  /* ─── Error Display ────────────────────────────────────────── */
+
+  showFieldError: function(inputEl, message) {
+    if (!inputEl) return;
+    inputEl.classList.add('error');
+    var group = inputEl.closest('.form-group');
+    if (group) {
+      var errEl = group.querySelector('.error-message');
+      if (!errEl) {
+        errEl = document.createElement('span');
+        errEl.className = 'error-message';
+        group.appendChild(errEl);
+      }
+      errEl.textContent = message;
+      errEl.classList.add('visible');
+    }
+  },
+
+  clearFieldError: function(inputEl) {
+    if (!inputEl) return;
+    inputEl.classList.remove('error');
+    var group = inputEl.closest('.form-group');
+    if (group) {
+      var errEl = group.querySelector('.error-message');
+      if (errEl) {
+        errEl.classList.remove('visible');
+        errEl.textContent = '';
+      }
+    }
+  },
+
+  clearAllErrors: function(container) {
+    if (!container) return;
+    var errorInputs = container.querySelectorAll('.error');
+    errorInputs.forEach(function(el) { el.classList.remove('error'); });
+    var errorMsgs = container.querySelectorAll('.error-message.visible');
+    errorMsgs.forEach(function(el) { el.classList.remove('visible'); el.textContent = ''; });
+  }
+};
+</script>

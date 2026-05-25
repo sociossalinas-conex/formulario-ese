@@ -1,0 +1,23 @@
+{
+  "name": "socioeconomic-admin-script",
+  "version": "1.0.0",
+  "description": "Backend synchronization service for Socioeconomic Studies",
+  "main": "sync.js",
+  "scripts": {
+    "sync": "node sync.js",
+    "sync:dry": "node sync.js --dry-run"
+  },
+  "keywords": [
+    "google-drive",
+    "supabase",
+    "automation",
+    "sync"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.43.4",
+    "dotenv": "^16.4.5",
+    "googleapis": "^140.0.0"
+  }
+}
