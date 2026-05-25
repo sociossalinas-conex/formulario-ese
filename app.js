@@ -336,8 +336,43 @@ function showValidationMessage(element, text, stateClass) {
 // CONSTRUCTOR INTELIGENTE DE FORMULARIOS DINÁMICOS MOBILE-FIRST
 // ==========================================================================
 
+const MEXICAN_STATES = [
+  "Aguascalientes", "Baja California", "Baja California Sur", "Campeche", "Chiapas", "Chihuahua",
+  "Ciudad de México", "Coahuila", "Colima", "Durango", "Estado de México", "Guanajuato", "Guerrero",
+  "Hidalgo", "Jalisco", "Michoacán", "Morelos", "Nayarit", "Nuevo León", "Oaxaca", "Puebla", "Querétaro",
+  "Quintana Roo", "San Luis Potosí", "Sinaloa", "Sonora", "Tabasco", "Tamaulipas", "Tlaxcala", "Veracruz",
+  "Yucatán", "Zacatecas"
+];
+
+const DROPDOWNS_COTEJADOS = ["Original", "Copia", "Impresión", "Digital"];
+const DROPDOWNS_ESCOLAR = ["Historial académico", "Cardex", "Certificado", "Boleta", "Credencial escolar"];
+const DROPDOWNS_INMUEBLES = ["Factura", "Carta Poder", "Escrituras", "Ticket"];
+
+// Secciones del Wizard
+const WIZARD_SECTIONS = [
+  { id: 'sec-estudio', label: '1. Estudio' },
+  { id: 'sec-personales', label: '2. Datos Personales' },
+  { id: 'sec-documentos', label: '3. Documentos' },
+  { id: 'sec-escolar', label: '4. Escolaridad' },
+  { id: 'sec-inmuebles', label: '5. Inmuebles' },
+  { id: 'sec-vivienda', label: '6. Vivienda' },
+  { id: 'sec-otros', label: '7. Otros' }
+];
+
+let currentWizardStep = 0;
+
+function classifyFieldSection(fieldId) {
+  const id = fieldId.toLowerCase();
+  if (id.includes('fecha_visita') || id.includes('demanda') || id.includes('puesto')) return 'sec-estudio';
+  if (id.includes('nombre') || id.includes('edad') || id.includes('nacimiento') || id.includes('direccion') || id.includes('domicilio') || id.includes('telefono') || id.includes('celular') || id.includes('correo') || id.includes('civil') || id.includes('licencia') || id.includes('sangre') || id.includes('dependiente') || id.includes('vive')) return 'sec-personales';
+  if (id.includes('acta') || id.includes('imss') || id.includes('comprobante_domicilio') || id.includes('comprobante_estudio') || id.includes('credencial') || id.includes('curp') || id.includes('rfc') || id.includes('pasaporte') || id.includes('cartilla') || id.includes('recomendacion') || id.includes('nomina') || id.includes('infonavit') || id.includes('folio') || id.includes('tipo_doc')) return 'sec-documentos';
+  if (id.includes('estudia') || id.includes('primaria') || id.includes('secundaria') || id.includes('bachillerato') || id.includes('profesional') || id.includes('escolar') || id.includes('escuela') || id.includes('ciudad') || id.includes('documento_obtenido') || id.match(/años.*escuela/)) return 'sec-escolar';
+  if (id.includes('automovil') || id.includes('moto') || id.includes('casa') || id.includes('terreno') || id.includes('inmueble') || id.includes('dueño') || id.includes('documento_comprobatorio') || id.includes('valor')) return 'sec-inmuebles';
+  if (id.includes('habit') || id.includes('limpieza') || id.includes('construccion') || id.includes('baño') || id.includes('cocina') || id.includes('sala') || id.includes('comedor') || id.includes('cuarto') || id.includes('recamara') || id.includes('nivel') || id.includes('estacionamiento') || id.includes('urbana') || id.includes('mueble')) return 'sec-vivienda';
+  return 'sec-otros';
+}
+
 function buildDynamicForm(template) {
-  // Ajustar cabecera metadata
   document.getElementById('form-company-badge').innerText = template.name;
   
   const brandLogoUrl = brandLogos[state.resolvedBrand] || brandLogos["Conexion Ejecutiva"];
@@ -347,48 +382,67 @@ function buildDynamicForm(template) {
     logoImg.style.display = "block";
   }
   
-  const brandBadge = document.getElementById('form-brand-badge');
-  if (brandBadge) brandBadge.style.display = "none";
-
   document.getElementById('form-title').innerText = `Estudio Socioeconómico`;
   
-  // Limpiar campos anteriores y reiniciar progreso
   const formContainer = document.getElementById('dynamic-capture-form');
   formContainer.innerHTML = "";
   document.getElementById('form-progress').style.width = "0%";
+  
+  // Bug fix: Clean previous data completely
   document.getElementById('candidate-name-input').value = "";
+  document.getElementById('sticky-candidate-header').style.display = 'none';
 
-  const schema = template.form_schema;
+  let schema = template.form_schema;
   
   if (!schema || schema.length === 0) {
     formContainer.innerHTML = `<p class="text-center text-muted">La plantilla no contiene campos válidos.</p>`;
     return;
   }
 
-  // Agrupar campos por su naturaleza de forma visual (ej. Generales, Datos de Contacto)
-  const generalGroup = document.createElement('div');
-  generalGroup.className = 'card-inner-field';
-  
-  const innerTitle = document.createElement('h3');
-  innerTitle.className = 'inner-section-title';
-  innerTitle.innerText = 'Preguntas de la Visita';
-  generalGroup.appendChild(innerTitle);
-
-  // Formatear etiqueta (ej. "Persona_Informacion" -> "Persona Informacion")
-  const formatLabel = (str) => {
-    return str.replace(/_/g, ' ');
-  };
+  // Remove duplicate 'Nombre' fields
+  schema = schema.filter(f => {
+    if(f.id.toLowerCase() === 'nombre' || f.id.toLowerCase() === 'nombre_candidato') return false;
+    return true;
+  });
 
   const config = state.resolvedConfig || {};
+  const formatLabel = (str) => str.replace(/_/g, ' ');
 
+  // 1. Create Wizard Stepper Header
+  const stepper = document.createElement('div');
+  stepper.className = 'wizard-stepper';
+  
+  WIZARD_SECTIONS.forEach((sec, idx) => {
+    const tab = document.createElement('button');
+    tab.className = `wizard-step-tab ${idx === 0 ? 'active' : ''}`;
+    tab.innerText = sec.label;
+    tab.type = 'button';
+    tab.onclick = () => goToWizardStep(idx);
+    stepper.appendChild(tab);
+  });
+  formContainer.appendChild(stepper);
+
+  // 2. Create Wizard Sections
+  const sectionContainers = {};
+  WIZARD_SECTIONS.forEach((sec, idx) => {
+    const container = document.createElement('div');
+    container.className = `wizard-section ${idx === 0 ? 'active' : ''}`;
+    container.id = `wizard-section-${idx}`;
+    sectionContainers[sec.id] = container;
+    formContainer.appendChild(container);
+  });
+
+  // 3. Render Fields by Semantic Class
   schema.forEach(field => {
-    // Ocultar Fecha de Solicitud y Resultado Final si está configurado
     if (config.hideFields !== false) {
       if (field.id === 'fecha_solicitud' || field.id === 'resultado_final' || field.id === 'fecha_de_solicitud') {
-        return; // Salta este campo, no lo dibuja
+        return;
       }
     }
 
+    const secId = classifyFieldSection(field.id);
+    const targetContainer = sectionContainers[secId];
+    
     const formGroup = document.createElement('div');
     formGroup.className = 'form-group';
     
@@ -397,7 +451,10 @@ function buildDynamicForm(template) {
       formGroup.innerHTML = `
         <label class="form-group-select-label" style="margin-bottom:6px; display:flex; align-items:center; gap: 8px;">
           ${escapeHTML(formatLabel(field.label))} ${field.requerido ? '*' : ''}
-          <div class="tooltip" title="Preguntar si ¿Alguna vez a tenido alguna demanda? no importa que tipo de demanda" style="cursor:help; color:var(--color-primary);"><i data-lucide="help-circle" style="width:16px;height:16px;"></i></div>
+          <div class="tooltip-container" onclick="this.classList.toggle('active')">
+            <i data-lucide="help-circle" style="width:16px;height:16px;"></i>
+            <div class="tooltip-content">Preguntar si ¿Alguna vez a tenido alguna demanda? no importa qué tipo de demanda</div>
+          </div>
         </label>
         <div class="select-wrapper">
           <i data-lucide="scale" class="select-icon"></i>
@@ -408,12 +465,10 @@ function buildDynamicForm(template) {
           </select>
         </div>
         <div id="demandas-details-container" style="display:none; margin-top: 12px;">
-          <textarea id="field-demandas-details" class="form-textarea" placeholder="Relate de manera detallada como fue la demanda, contra quien, en que año, cual fue la resolucion o veredicto..."></textarea>
+          <textarea id="field-demandas-details" class="form-textarea" placeholder="Relate de manera detallada: ¿como fué la demanda, ¿contra quien? ¿en que año fue? ¿cual fue la resolución? etc."></textarea>
         </div>
       `;
-      generalGroup.appendChild(formGroup);
-      
-      // Listener para mostrar/ocultar el detalle
+      targetContainer.appendChild(formGroup);
       setTimeout(() => {
         const selectEl = document.getElementById(`field-${field.id}`);
         const detailsEl = document.getElementById('demandas-details-container');
@@ -432,14 +487,50 @@ function buildDynamicForm(template) {
       return;
     }
 
-    // Generar estructura según el tipo de campo (tel, email, number, date, textarea, text)
-    if (field.tipo === 'textarea') {
+    // Dropdowns Específicos
+    let dropdownOptions = null;
+    let isAge = false;
+    
+    if (field.id.includes('lugar_nacimiento') || field.id.includes('ciudad')) dropdownOptions = MEXICAN_STATES;
+    else if (field.id.includes('tipo_doc')) dropdownOptions = DROPDOWNS_COTEJADOS;
+    else if (field.id.includes('documento_obtenido')) dropdownOptions = DROPDOWNS_ESCOLAR;
+    else if (field.id.includes('documento_comprobatorio')) dropdownOptions = DROPDOWNS_INMUEBLES;
+    
+    if (field.id === 'edad') isAge = true;
+
+    // Puesto tooltip
+    let tooltipHtml = '';
+    if (field.id.includes('puesto')) {
+      tooltipHtml = `
+        <div class="tooltip-container" onclick="this.classList.toggle('active')">
+          <i data-lucide="help-circle" style="width:16px;height:16px;"></i>
+          <div class="tooltip-content">Puesto al que concursa dentro del proceso de la empresa</div>
+        </div>
+      `;
+    }
+
+    if (dropdownOptions) {
       formGroup.innerHTML = `
-        <label class="form-group-select-label" style="margin-bottom:6px;">${escapeHTML(formatLabel(field.label))} ${field.requerido ? '*' : ''}</label>
+        <label class="form-group-select-label" style="margin-bottom:6px; display:flex; align-items:center; gap: 8px;">
+          ${escapeHTML(formatLabel(field.label))} ${field.requerido ? '*' : ''}
+        </label>
+        <div class="select-wrapper">
+          <i data-lucide="list" class="select-icon"></i>
+          <select id="field-${field.id}" class="form-select" ${field.requerido ? 'required' : ''}>
+            <option value="" disabled selected>Seleccione...</option>
+            ${dropdownOptions.map(o => `<option value="${escapeHTML(o)}">${escapeHTML(o)}</option>`).join('')}
+          </select>
+        </div>
+      `;
+    } else if (field.tipo === 'textarea') {
+      formGroup.innerHTML = `
+        <label class="form-group-select-label" style="margin-bottom:6px; display:flex; align-items:center; gap: 8px;">
+          ${escapeHTML(formatLabel(field.label))} ${field.requerido ? '*' : ''}
+          ${tooltipHtml}
+        </label>
         <textarea id="field-${field.id}" class="form-textarea" placeholder="${escapeHTML(formatLabel(field.placeholder))}" ${field.requerido ? 'required' : ''}></textarea>
       `;
     } else {
-      // Obtener icono idóneo para el input wrapper
       let iconName = 'help-circle';
       if (field.tipo === 'tel') iconName = 'phone';
       else if (field.tipo === 'email') iconName = 'mail';
@@ -447,31 +538,98 @@ function buildDynamicForm(template) {
       else if (field.tipo === 'number') iconName = 'numeric';
 
       formGroup.innerHTML = `
-        <div class="input-wrapper">
-          <i data-lucide="${iconName}" class="input-icon"></i>
-          <input type="${field.tipo}" id="field-${field.id}" class="form-input" placeholder=" " ${field.requerido ? 'required' : ''} autocomplete="off">
-          <label for="field-${field.id}" class="form-label">${escapeHTML(formatLabel(field.label))} ${field.requerido ? '*' : ''}</label>
+        <div class="input-wrapper" style="position:relative;">
+          <label style="display:flex; align-items:center; gap: 8px; font-size: 0.8rem; margin-bottom: 4px; font-weight: 500; color: var(--color-text-main);">
+            ${escapeHTML(formatLabel(field.label))} ${field.requerido ? '*' : ''}
+            ${tooltipHtml}
+          </label>
+          <div style="position:relative;">
+            <i data-lucide="${iconName}" class="input-icon" style="top: 50%; transform: translateY(-50%);"></i>
+            <input type="${field.tipo}" id="field-${field.id}" class="form-input" placeholder="${field.id.includes('año') ? 'ej. 3 años' : ''}" ${field.requerido ? 'required' : ''} autocomplete="off" style="padding-top: 10px; padding-bottom: 10px;">
+          </div>
         </div>
       `;
     }
 
-    generalGroup.appendChild(formGroup);
+    targetContainer.appendChild(formGroup);
   });
 
-  formContainer.appendChild(generalGroup);
-  
-  // Agregar detector para actualizar barra de progreso
-  setupProgressTracking(schema);
+  // 4. Agregar Botones de Navegación del Wizard
+  WIZARD_SECTIONS.forEach((sec, idx) => {
+    const container = sectionContainers[sec.id];
+    
+    // Si la sección está vacía, agregar mensaje
+    if (container.querySelectorAll('.form-group').length === 0) {
+      container.innerHTML = `<p class="text-center text-muted" style="margin: 20px 0;">No hay preguntas para esta sección en la plantilla.</p>`;
+    }
+
+    const footer = document.createElement('div');
+    footer.className = 'wizard-footer';
+    
+    const backBtn = document.createElement('button');
+    backBtn.type = 'button';
+    backBtn.className = 'btn btn-secondary';
+    backBtn.innerText = '← Atrás';
+    backBtn.style.visibility = idx === 0 ? 'hidden' : 'visible';
+    backBtn.onclick = () => goToWizardStep(idx - 1);
+    
+    const nextBtn = document.createElement('button');
+    nextBtn.type = 'button';
+    nextBtn.className = 'btn btn-primary';
+    
+    if (idx === WIZARD_SECTIONS.length - 1) {
+      nextBtn.innerText = 'Guardar Captura Completa';
+      nextBtn.onclick = submitCapturedForm;
+    } else {
+      nextBtn.innerText = 'Siguiente →';
+      nextBtn.onclick = () => goToWizardStep(idx + 1);
+    }
+
+    footer.appendChild(backBtn);
+    footer.appendChild(nextBtn);
+    container.appendChild(footer);
+  });
+
+  // Init Wizard State
+  currentWizardStep = 0;
   lucide.createIcons();
+  setupProgressTracking(schema);
   
-  // Autocompletar Fecha Visita si está configurado
   if (config.autoDate !== false) {
     const today = new Date().toISOString().split('T')[0];
     const fechaVisita = document.getElementById('field-fecha_visita') || document.getElementById('field-fecha_de_visita');
-    if (fechaVisita) {
-      fechaVisita.value = today;
-    }
+    if (fechaVisita) fechaVisita.value = today;
   }
+
+  // Setup Age calculation trigger
+  const dobField = document.querySelector('input[type="date"][id*="nacimiento"]');
+  const ageField = document.getElementById('field-edad');
+  if (dobField && ageField) {
+    dobField.addEventListener('change', (e) => {
+      if(e.target.value) {
+        const dob = new Date(e.target.value);
+        const diffMs = Date.now() - dob.getTime();
+        const ageDate = new Date(diffMs); 
+        const calcAge = Math.abs(ageDate.getUTCFullYear() - 1970);
+        ageField.value = calcAge;
+        // Trigger progress update manually
+        ageField.dispatchEvent(new Event('input'));
+      }
+    });
+  }
+}
+
+function goToWizardStep(stepIndex) {
+  if (stepIndex < 0 || stepIndex >= WIZARD_SECTIONS.length) return;
+  
+  document.querySelectorAll('.wizard-section').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.wizard-step-tab').forEach(el => el.classList.remove('active'));
+  
+  document.getElementById(`wizard-section-${stepIndex}`).classList.add('active');
+  document.querySelectorAll('.wizard-step-tab')[stepIndex].classList.add('active');
+  
+  currentWizardStep = stepIndex;
+  window.scrollTo(0, 0); // Volver arriba al cambiar de pestaña
 }
 
 /**
@@ -803,6 +961,10 @@ document.addEventListener('DOMContentLoaded', () => {
   // Abortar Formulario
   document.getElementById('btn-abort-form').addEventListener('click', () => {
     if (confirm("¿Desea abortar la captura del estudio socioeconómico? Los datos ingresados se perderán.")) {
+      // Limpiar candidato
+      document.getElementById('candidate-name-input').value = '';
+      document.getElementById('sticky-candidate-header').style.display = 'none';
+      document.getElementById('dynamic-capture-form').innerHTML = ''; // reset content
       navigateTo('view-welcome');
     }
   });
