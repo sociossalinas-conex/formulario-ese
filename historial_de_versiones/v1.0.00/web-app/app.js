@@ -8,7 +8,7 @@
 // 1. Inicialización de Supabase Client con las credenciales del usuario
 const SUPABASE_URL = "https://mcdjysjrezxmghmvannh.supabase.co";
 const SUPABASE_KEY = "sb_publishable_2zg1_mv94Gvpl8b3lZOvMQ_xRlrgrQS";
-const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // 2. Estado Global de la Aplicación
 let state = {
