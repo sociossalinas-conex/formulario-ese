@@ -395,7 +395,7 @@ function renderFieldsGrouped() {
 
 window.toggleAccordion = function(headerElement) {
   // Evitar toggle si se hizo clic en el drag handle o en el switch
-  if (event.target.closest('.drag-handle') || event.target.closest('.switch') || event.target.closest('.btn-delete')) return;
+  if (event.target.closest('.drag-handle') || event.target.closest('.switch') || event.target.closest('.btn-delete') || event.target.closest('.btn-duplicate')) return;
   
   const accordion = headerElement.closest('.field-accordion');
   accordion.classList.toggle('open');
@@ -435,7 +435,10 @@ function createFieldAccordion(field) {
             <span class="slider"></span>
           </label>
         </div>
-        <button class="btn-icon btn-delete" style="color: #ef4444; border:none; background:transparent;" onclick="deleteField(this)">
+        <button class="btn-icon btn-duplicate" style="color: var(--color-primary); border:none; background:transparent; padding: 4px;" title="Copiar / Duplicar Campo" onclick="duplicateField(this)">
+          <i data-lucide="copy" style="width: 16px; height: 16px;"></i>
+        </button>
+        <button class="btn-icon btn-delete" style="color: #ef4444; border:none; background:transparent; padding: 4px;" title="Eliminar Campo" onclick="deleteField(this)">
           <i data-lucide="trash-2" style="width: 16px; height: 16px;"></i>
         </button>
       </div>
@@ -540,6 +543,84 @@ window.deleteField = function(btnElem) {
   if (confirm('¿Estás seguro de que quieres eliminar este campo de la plantilla?')) {
     const accordion = btnElem.closest('.field-accordion');
     accordion.remove();
+  }
+};
+
+window.duplicateField = function(btnElem) {
+  const card = btnElem.closest('.field-accordion');
+  const oldId = card.dataset.id;
+  
+  // Solicitar nuevo ID
+  const newId = prompt('Ingresa el ID del nuevo campo duplicado:', oldId + '_copia');
+  if (!newId || newId.trim() === '') return;
+  
+  const cleanId = newId.trim().replace(/\s+/g, '_').toLowerCase();
+  
+  // Verificar que el ID no exista ya
+  const exists = document.querySelector(`.field-accordion[data-id="${cleanId}"]`);
+  if (exists) {
+    alert('Ya existe un campo con este ID en la plantilla.');
+    return;
+  }
+  
+  // Obtener todos los valores actuales del campo origen desde el DOM!
+  const tipo = card.querySelector('.field-type').value;
+  const label = card.querySelector('.field-label').value;
+  const placeholder = card.querySelector('.field-placeholder').value;
+  const opcionesStr = card.querySelector('.field-opciones').value;
+  const ayuda = card.querySelector('.field-ayuda').value;
+  
+  const chkToday = card.querySelector('.field-default-today');
+  const defaultToday = chkToday ? chkToday.checked : false;
+
+  const chkReq = card.querySelector('.field-requerido');
+  const requerido = chkReq ? chkReq.checked : false;
+  
+  const transformSelect = card.querySelector('.field-transform');
+  const transform = transformSelect ? transformSelect.value : 'none';
+  
+  const dependsOn = card.querySelector('.field-depends-on').value.trim();
+  const dependsOnValue = card.querySelector('.field-depends-on-value').value.trim();
+  const linkFrom = card.querySelector('.field-link-from').value.trim();
+  
+  const newField = {
+    id: cleanId,
+    label: label + ' (Copia)',
+    tipo: tipo,
+    section: card.closest('.section-group').dataset.section,
+    placeholder: placeholder,
+    ayuda: ayuda,
+    defaultToday: defaultToday,
+    requerido: requerido,
+    transform: transform,
+    dependsOn: dependsOn,
+    dependsOnValue: dependsOnValue,
+    linkFrom: linkFrom
+  };
+  
+  if (tipo === 'select' && opcionesStr.trim() !== '') {
+    newField.opciones = opcionesStr.split(',').map(s => s.trim()).filter(s => s !== '');
+  }
+  
+  // Crear el nuevo elemento visual
+  const newCard = createFieldAccordion(newField);
+  
+  // Insertarlo inmediatamente debajo del original en el DOM
+  card.parentNode.insertBefore(newCard, card.nextSibling);
+  
+  lucide.createIcons();
+  
+  // Mostrar mensaje sutil de éxito
+  const toast = document.getElementById('toast');
+  if (toast) {
+    const origText = toast.innerHTML;
+    toast.innerHTML = '<i data-lucide="check-circle"></i> Campo duplicado con éxito. Recuerda guardar cambios.';
+    toast.classList.add('show');
+    lucide.createIcons();
+    setTimeout(() => {
+      toast.classList.remove('show');
+      setTimeout(() => { toast.innerHTML = origText; lucide.createIcons(); }, 300);
+    }, 3000);
   }
 };
 
@@ -907,3 +988,12 @@ function escapeHTML(str) {
 // Init
 lucide.createIcons();
 loadTemplates();
+
+// Comprobar si se solicitó abrir directamente la base de datos desde el menú del dashboard
+const urlParams = new URLSearchParams(window.location.search);
+if (urlParams.get('view') === 'database') {
+  setTimeout(() => {
+    const dbBtn = document.getElementById('btn-show-database');
+    if (dbBtn) dbBtn.click();
+  }, 200);
+}
