@@ -1056,11 +1056,13 @@ async function submitCapturedForm() {
   });
 
   const payload = {
-    template_id: state.matchedTemplate.id,
     client_name: state.matchedTemplate.name,
-    candidate_name: candidateName,
-    commercial_brand: state.resolvedBrand,
-    captured_data: answers,
+    template_name: state.matchedTemplate.name,
+    brand_assigned: state.resolvedBrand,
+    payload: {
+      candidate_name: candidateName,
+      answers: answers
+    },
     created_at: new Date().toISOString()
   };
 
@@ -1300,11 +1302,11 @@ document.addEventListener('DOMContentLoaded', () => {
           const client = getSupabaseClient();
           if (!client) return;
 
-          console.log(`Buscando coincidencias para candidate_name: "${name}"...`);
+          console.log(`Buscando coincidencias para candidate_name en payload: "${name}"...`);
           const { data, error } = await client
             .from('socioeconomic_captures')
             .select('*')
-            .ilike('candidate_name', `%${name}%`)
+            .ilike('payload->>candidate_name', `%${name}%`)
             .order('created_at', { ascending: false })
             .limit(1);
 
@@ -1315,17 +1317,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
           if (data && data.length > 0) {
             const match = data[0];
-            const foundData = match.captured_data;
+            const hasPayload = match.payload && typeof match.payload === 'object';
+            const matchedName = hasPayload ? match.payload.candidate_name : 'Candidato';
+            const foundData = hasPayload ? match.payload.answers : null;
+            
             const bannerMessage = document.getElementById('lookup-banner-message');
             const btnLoad = document.getElementById('btn-load-candidate-data');
             
             if (bannerMessage && btnLoad && banner) {
-              bannerMessage.innerText = `¡Estudio previo encontrado para "${match.candidate_name}"!`;
+              bannerMessage.innerText = `¡Estudio previo encontrado para "${matchedName}"!`;
               banner.style.display = 'block';
               
               btnLoad.onclick = () => {
                 if (foundData && typeof window.loadCandidateData === 'function') {
-                  window.loadCandidateData(foundData, match.candidate_name);
+                  window.loadCandidateData(foundData, matchedName);
                 }
               };
             }

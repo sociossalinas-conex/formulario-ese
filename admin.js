@@ -836,17 +836,20 @@ function renderCapturesTable(records) {
       minute: '2-digit'
     }) : 'Sin fecha';
     
-    const dataKeysCount = record.captured_data ? Object.keys(record.captured_data).length : 0;
+    const candidateName = record.payload ? record.payload.candidate_name : 'N/A';
+    const brand = record.brand_assigned || 'N/A';
+    const answers = record.payload ? record.payload.answers : null;
+    const dataKeysCount = answers ? Object.keys(answers).length : 0;
     
     return `
       <tr>
         <td style="font-weight: 500;">${dateStr}</td>
-        <td style="font-weight: 600; color: var(--color-primary);">${escapeHTML(record.candidate_name || 'N/A')}</td>
+        <td style="font-weight: 600; color: var(--color-primary);">${escapeHTML(candidateName)}</td>
         <td><span class="company-badge" style="background: rgba(37, 99, 235, 0.08); color: var(--color-primary); border: 1px solid rgba(37, 99, 235, 0.15);">${escapeHTML(record.client_name || 'N/A')}</span></td>
-        <td><span class="commercial-badge" style="background: rgba(16, 185, 129, 0.08); color: var(--color-accent); border: 1px solid rgba(16, 185, 129, 0.15);">${escapeHTML(record.commercial_brand || 'N/A')}</span></td>
+        <td><span class="commercial-badge" style="background: rgba(16, 185, 129, 0.08); color: var(--color-accent); border: 1px solid rgba(16, 185, 129, 0.15);">${escapeHTML(brand)}</span></td>
         <td style="font-family: monospace; font-size: 0.85rem; color: var(--color-text-muted);">${dataKeysCount} respuestas capturadas</td>
         <td style="text-align: center;">
-          <button class="btn" style="padding: 4px 10px; font-size: 0.75rem; background: rgba(37, 99, 235, 0.1); border-color: rgba(37, 99, 235, 0.2); color: var(--color-primary); cursor: pointer;" onclick="exportSingleCaptureToCSV(${record.id})">
+          <button class="btn" style="padding: 4px 10px; font-size: 0.75rem; background: rgba(37, 99, 235, 0.1); border-color: rgba(37, 99, 235, 0.2); color: var(--color-primary); cursor: pointer;" onclick="exportSingleCaptureToCSV('${record.id}')">
             <i data-lucide="download" style="width: 12px; height: 12px; display: inline; vertical-align: middle; margin-right: 4px;"></i> Exportar
           </button>
         </td>
@@ -867,9 +870,10 @@ document.getElementById('search-db-captures').addEventListener('input', (e) => {
   }
   
   const filtered = dbCaptures.filter(r => {
-    return (r.candidate_name && r.candidate_name.toLowerCase().includes(query)) ||
-           (r.client_name && r.client_name.toLowerCase().includes(query)) ||
-           (r.commercial_brand && r.commercial_brand.toLowerCase().includes(query));
+    const candidate = r.payload ? (r.payload.candidate_name || '').toLowerCase() : '';
+    const brand = (r.brand_assigned || '').toLowerCase();
+    const client = (r.client_name || '').toLowerCase();
+    return candidate.includes(query) || client.includes(query) || brand.includes(query);
   });
   
   renderCapturesTable(filtered);
@@ -894,8 +898,9 @@ document.getElementById('btn-export-all-excel').addEventListener('click', () => 
   
   const uniqueKeysSet = new Set();
   dbCaptures.forEach(record => {
-    if (record.captured_data) {
-      Object.keys(record.captured_data).forEach(key => {
+    const answers = record.payload ? record.payload.answers : null;
+    if (answers) {
+      Object.keys(answers).forEach(key => {
         uniqueKeysSet.add(key);
       });
     }
@@ -913,16 +918,20 @@ document.getElementById('btn-export-all-excel').addEventListener('click', () => 
   
   dbCaptures.forEach(record => {
     const dateStr = record.created_at ? new Date(record.created_at).toISOString() : '';
+    const candidateName = record.payload ? record.payload.candidate_name : '';
+    const brand = record.brand_assigned || '';
+    const answers = record.payload ? record.payload.answers : null;
+    
     const row = [
       dateStr,
-      record.candidate_name || '',
+      candidateName,
       record.client_name || '',
-      record.commercial_brand || '',
+      brand,
       record.id
     ];
     
     questionKeys.forEach(key => {
-      const val = record.captured_data ? record.captured_data[key] : '';
+      const val = answers ? answers[key] : '';
       row.push(val || '');
     });
     
@@ -940,24 +949,28 @@ window.exportSingleCaptureToCSV = function(id) {
   const headers = ['Campo / Pregunta', 'Respuesta Capturada'];
   const csvRows = [headers.map(escapeCSVValue).join(',')];
   
+  const candidateName = record.payload ? record.payload.candidate_name : 'N/A';
+  const brand = record.brand_assigned || 'N/A';
+  const answers = record.payload ? record.payload.answers : null;
+  
   csvRows.push([escapeCSVValue('Fecha de Captura'), escapeCSVValue(record.created_at)]);
-  csvRows.push([escapeCSVValue('Nombre del Candidato'), escapeCSVValue(record.candidate_name)]);
+  csvRows.push([escapeCSVValue('Nombre del Candidato'), escapeCSVValue(candidateName)]);
   csvRows.push([escapeCSVValue('Cliente (Empresa)'), escapeCSVValue(record.client_name)]);
-  csvRows.push([escapeCSVValue('Marca Comercial'), escapeCSVValue(record.commercial_brand)]);
+  csvRows.push([escapeCSVValue('Marca Comercial'), escapeCSVValue(brand)]);
   
   csvRows.push([escapeCSVValue('---'), escapeCSVValue('---')]);
   
-  if (record.captured_data) {
+  if (answers) {
     const formatHeader = (str) => str.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-    Object.keys(record.captured_data).sort().forEach(key => {
+    Object.keys(answers).sort().forEach(key => {
       csvRows.push([
         escapeCSVValue(formatHeader(key)),
-        escapeCSVValue(record.captured_data[key])
+        escapeCSVValue(answers[key])
       ]);
     });
   }
   
-  const safeCandidateName = (record.candidate_name || 'Estudio').replace(/[^a-zA-Z0-9]/g, '_');
+  const safeCandidateName = (candidateName || 'Estudio').replace(/[^a-zA-Z0-9]/g, '_');
   triggerCSVDownload(csvRows, `Estudio_${safeCandidateName}.csv`);
 };
 
