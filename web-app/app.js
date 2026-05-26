@@ -41,10 +41,10 @@ window.loadCandidateData = function(capturedData, candidateExactName) {
   if (candidateInput) {
     candidateInput.value = candidateExactName;
     // Sincronizar sticky header
-    const stickyHeader = document.getElementById('sticky-candidate-header');
-    const stickyName = document.getElementById('sticky-candidate-name-text');
+    const stickyHeader = document.getElementById('nav-candidate-name-container');
+    const stickyName = document.getElementById('nav-candidate-name-text');
     if (stickyHeader && stickyName) {
-      stickyHeader.style.display = 'block';
+      stickyHeader.style.display = 'flex';
       stickyName.innerText = candidateExactName;
     }
   }
@@ -473,7 +473,8 @@ function buildDynamicForm(template) {
   
   // Bug fix: Clean previous data completely
   document.getElementById('candidate-name-input').value = "";
-  document.getElementById('sticky-candidate-header').style.display = 'none';
+  const navCandidateName = document.getElementById('nav-candidate-name-container');
+  if (navCandidateName) navCandidateName.style.display = 'none';
   const lookupBanner = document.getElementById('candidate-lookup-banner');
   if (lookupBanner) lookupBanner.style.display = 'none';
 
@@ -661,7 +662,11 @@ function buildDynamicForm(template) {
       `;
     } else {
       let iconName = 'edit-2';
-      if (field.tipo === 'tel') iconName = 'phone';
+      let extraAttrs = '';
+      if (field.tipo === 'tel') {
+        iconName = 'phone';
+        extraAttrs = 'pattern="[0-9]{10}" title="El número telefónico debe tener exactamente 10 dígitos." maxlength="10"';
+      }
       else if (field.tipo === 'email') iconName = 'mail';
       else if (field.tipo === 'date') iconName = 'calendar';
       else if (field.tipo === 'number') iconName = 'numeric';
@@ -685,7 +690,7 @@ function buildDynamicForm(template) {
         ${helpBlockHtml}
         <div style="position:relative; width: 100%;">
           <i data-lucide="${iconName}" class="input-icon" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); pointer-events: none; color: var(--color-text-dark); width: 18px; height: 18px;"></i>
-          <input type="${field.tipo}" id="field-${field.id}" class="form-input" placeholder="${escapeHTML(field.placeholder || (field.id.includes('año') ? 'ej. 3 años' : ''))}" ${defaultValAttr} data-transform="${field.transform || 'none'}" ${linkFromAttr} ${field.requerido ? 'required' : ''} autocomplete="off" style="width: 100%; padding-left: 42px; padding-top: 10px; padding-bottom: 10px; box-sizing: border-box;">
+          <input type="${field.tipo}" id="field-${field.id}" class="form-input" ${extraAttrs} placeholder="${escapeHTML(field.placeholder || (field.id.includes('año') ? 'ej. 3 años' : ''))}" ${defaultValAttr} data-transform="${field.transform || 'none'}" ${linkFromAttr} ${field.requerido ? 'required' : ''} autocomplete="off" style="width: 100%; padding-left: 42px; padding-top: 10px; padding-bottom: 10px; box-sizing: border-box;">
         </div>
       `;
     }
@@ -740,26 +745,66 @@ function buildDynamicForm(template) {
     if (fechaVisita) fechaVisita.value = today;
   }
 
-  // Setup Age calculation trigger
-  const dobField = document.querySelector('input[type="date"][id*="nacimiento"]');
-  const ageField = document.getElementById('field-edad');
-  if (dobField && ageField) {
-    dobField.addEventListener('change', (e) => {
-      if(e.target.value) {
-        const dob = new Date(e.target.value);
-        const diffMs = Date.now() - dob.getTime();
-        const ageDate = new Date(diffMs); 
-        const calcAge = Math.abs(ageDate.getUTCFullYear() - 1970);
-        ageField.value = calcAge;
-        // Trigger progress update manually
-        ageField.dispatchEvent(new Event('input'));
-      }
+  // Setup Age calculation trigger for ALL templates and fields dynamically
+  const dobFields = document.querySelectorAll('input[type="date"][id*="nacimiento"]');
+  const ageFields = document.querySelectorAll('input[id*="edad"]');
+  
+  if (dobFields.length > 0 && ageFields.length > 0) {
+    dobFields.forEach(dobField => {
+      const handleAgeCalc = () => {
+        if (dobField.value) {
+          const dob = new Date(dobField.value);
+          const today = new Date();
+          let calcAge = today.getFullYear() - dob.getFullYear();
+          const monthDiff = today.getMonth() - dob.getMonth();
+          if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
+            calcAge--;
+          }
+          if (calcAge >= 0) {
+            ageFields.forEach(ageField => {
+              ageField.value = calcAge;
+              // Trigger input/change events to update progress and conditional visibilities
+              ageField.dispatchEvent(new Event('input', { bubbles: true }));
+              ageField.dispatchEvent(new Event('change', { bubbles: true }));
+            });
+          }
+        }
+      };
+      
+      dobField.addEventListener('input', handleAgeCalc);
+      dobField.addEventListener('change', handleAgeCalc);
     });
   }
 }
 
 function goToWizardStep(stepIndex) {
   if (stepIndex < 0 || stepIndex >= WIZARD_SECTIONS.length) return;
+  
+  // Validar campos obligatorios al intentar avanzar
+  if (stepIndex > currentWizardStep) {
+    const currentSection = document.getElementById(`wizard-section-${currentWizardStep}`);
+    if (currentSection) {
+      const requiredInputs = currentSection.querySelectorAll('input[required], select[required], textarea[required]');
+      let firstInvalid = null;
+      for (const input of requiredInputs) {
+        // Ignorar campos ocultos por lógica condicional
+        const closestConditional = input.closest('.conditional-field');
+        if (closestConditional && closestConditional.style.display === 'none') {
+          continue;
+        }
+        if (!input.value || input.value.trim() === '') {
+          firstInvalid = input;
+          break;
+        }
+      }
+      if (firstInvalid) {
+        alert("Por favor complete todos los campos obligatorios antes de continuar.");
+        firstInvalid.focus();
+        try { firstInvalid.reportValidity(); } catch(e) {}
+        return;
+      }
+    }
+  }
   
   document.querySelectorAll('.wizard-section').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.wizard-step-tab').forEach(el => el.classList.remove('active'));
@@ -844,11 +889,11 @@ function setupProgressTracking(schema) {
     e.target.value = capitalizeProperNoun(e.target.value);
     e.target.setSelectionRange(start, end);
     
-    const stickyHeader = document.getElementById('sticky-candidate-header');
-    const stickyName = document.getElementById('sticky-candidate-name-text');
+    const stickyHeader = document.getElementById('nav-candidate-name-container');
+    const stickyName = document.getElementById('nav-candidate-name-text');
     
     if (e.target.value.trim() !== "") {
-      stickyHeader.style.display = 'block';
+      stickyHeader.style.display = 'flex';
       stickyName.innerText = e.target.value;
     } else {
       stickyHeader.style.display = 'none';
@@ -1130,7 +1175,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (confirm("¿Desea abortar la captura del estudio socioeconómico? Los datos ingresados se perderán.")) {
       // Limpiar candidato
       document.getElementById('candidate-name-input').value = '';
-      document.getElementById('sticky-candidate-header').style.display = 'none';
+      const navCandidateName = document.getElementById('nav-candidate-name-container');
+      if (navCandidateName) navCandidateName.style.display = 'none';
       const lookupBanner = document.getElementById('candidate-lookup-banner');
       if (lookupBanner) lookupBanner.style.display = 'none';
       document.getElementById('dynamic-capture-form').innerHTML = ''; // reset content
@@ -1266,6 +1312,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.addEventListener('input', handleDynamicFields);
   document.addEventListener('change', handleDynamicFields);
+
+  // Validar y Formatear Números Telefónicos (10 dígitos, sin espacios, solo números)
+  document.addEventListener('input', (e) => {
+    if (e.target.matches('input[type="tel"]')) {
+      const start = e.target.selectionStart;
+      const originalLen = e.target.value.length;
+      e.target.value = e.target.value.replace(/\D/g, '');
+      const newLen = e.target.value.length;
+      e.target.setSelectionRange(start - (originalLen - newLen), start - (originalLen - newLen));
+      
+      if (e.target.value.length > 0 && e.target.value.length !== 10) {
+        e.target.setCustomValidity("El número telefónico debe tener exactamente 10 dígitos.");
+      } else {
+        e.target.setCustomValidity("");
+      }
+    }
+  });
+
+  document.addEventListener('blur', (e) => {
+    if (e.target.matches('input[type="tel"]')) {
+      if (e.target.value.length > 0 && e.target.value.length !== 10) {
+        e.target.setCustomValidity("El número telefónico debe tener exactamente 10 dígitos.");
+        try { e.target.reportValidity(); } catch(err) {}
+      } else {
+        e.target.setCustomValidity("");
+      }
+    }
+  }, true);
 
   // Inicializar Iconos Lucide al inicio
   lucide.createIcons();
