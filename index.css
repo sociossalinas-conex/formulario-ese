@@ -19,6 +19,9 @@
   --color-accent-light: #38bdf8;
   --color-accent-glow: rgba(0, 164, 248, 0.15);
   
+  --color-success: #10b981;
+  --color-success-glow: rgba(16, 185, 129, 0.15);
+  
   --color-danger: #FF0D1D;
   --color-danger-glow: rgba(255, 13, 29, 0.15);
   
@@ -41,6 +44,9 @@
   --color-primary: #00A4F8;
   --color-primary-light: #38bdf8;
   --color-primary-glow: rgba(0, 164, 248, 0.35);
+  
+  --color-success: #10b981;
+  --color-success-glow: rgba(16, 185, 129, 0.35);
   
   --color-text-main: #f8fafc;
   --color-text-muted: #94a3b8;
