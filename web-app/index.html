@@ -144,6 +144,18 @@
                 <label for="candidate-name-input" class="form-label">Nombre del Candidato</label>
               </div>
             </div>
+            <!-- BANNER DE BÚSQUEDA DE CANDIDATOS -->
+            <div id="candidate-lookup-banner" style="display: none; margin-top: 12px; padding: 12px; border-radius: 8px; background: rgba(16, 185, 129, 0.1); border: 1px solid var(--color-success); animation: fadeIn 0.3s ease;">
+              <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+                <div style="display: flex; align-items: center; gap: 8px; color: var(--color-success);">
+                  <i data-lucide="check-circle" style="width: 20px; height: 20px;"></i>
+                  <span style="font-size: 0.9rem; font-weight: 600;" id="lookup-banner-message">¡Candidato encontrado! Se detectó un registro previo.</span>
+                </div>
+                <button type="button" id="btn-load-candidate-data" class="btn" style="background: var(--color-success); color: white; padding: 6px 14px; font-size: 0.8rem; border-radius: 6px; border: none; cursor: pointer; transition: background 0.2s; font-weight: bold;">
+                  Cargar Datos
+                </button>
+              </div>
+            </div>
           </div>
 
           <!-- Campos cargados dinámicamente -->
