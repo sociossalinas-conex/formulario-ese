@@ -1,12 +1,13 @@
 const SUPABASE_URL = "https://mcdjysjrezxmghmvannh.supabase.co";
 const SUPABASE_KEY = "sb_publishable_2zg1_mv94Gvpl8b3lZOvMQ_xRlrgrQS";
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let templates = [];
 let currentTemplate = null;
 
 // Lógica de Clasificación copiada para pre-llenar los vacíos
 function getSuggestedSection(fieldId) {
+  if (!fieldId) return 'sec-personales';
   const id = fieldId.toLowerCase();
   
   if (id.match(/fecha.*solicitud/) || id.match(/fecha.*visita/) || id.match(/elaborado_por/) || id === 'puesto' || id === 'puesto_solicitado' || id.match(/demandas/) || id.match(/resultado/) || id.match(/solicitado_por/)) return 'sec-estudio';
@@ -39,7 +40,7 @@ const SECTION_OPTIONS = [
 ];
 
 async function loadTemplates() {
-  const { data, error } = await supabase.from('socioeconomic_templates').select('*').order('name');
+  const { data, error } = await supabaseClient.from('socioeconomic_templates').select('*').order('name');
   if (error) {
     console.error(error);
     alert('Error al cargar plantillas');
@@ -193,7 +194,7 @@ document.getElementById('btn-save').addEventListener('click', async () => {
   const originalText = btn.innerHTML;
   btn.innerHTML = `<i data-lucide="loader-2" class="loading-spinner"></i> Guardando...`;
   
-  const { error } = await supabase
+  const { error } = await supabaseClient
     .from('socioeconomic_templates')
     .update({ form_schema: newSchema })
     .eq('id', currentTemplate.id);
