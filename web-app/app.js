@@ -556,7 +556,7 @@ function buildDynamicForm(template) {
           ${escapeHTML(formatLabel(field.label))} ${field.requerido ? '*' : ''}
           ${tooltipHtml}
         </label>
-        <textarea id="field-${field.id}" class="form-textarea" placeholder="${escapeHTML(field.placeholder || '')}" ${field.requerido ? 'required' : ''}></textarea>
+        <textarea id="field-${field.id}" class="form-textarea" placeholder="${escapeHTML(field.placeholder || '')}" data-transform="${field.transform || 'none'}" ${field.requerido ? 'required' : ''}></textarea>
       `;
     } else {
       let iconName = 'edit-2';
@@ -582,7 +582,7 @@ function buildDynamicForm(template) {
           </label>
           <div style="position:relative;">
             <i data-lucide="${iconName}" class="input-icon" style="top: 50%; transform: translateY(-50%);"></i>
-            <input type="${field.tipo}" id="field-${field.id}" class="form-input" placeholder="${escapeHTML(field.placeholder || (field.id.includes('año') ? 'ej. 3 años' : ''))}" ${defaultValAttr} ${field.requerido ? 'required' : ''} autocomplete="off" style="padding-top: 10px; padding-bottom: 10px;">
+            <input type="${field.tipo}" id="field-${field.id}" class="form-input" placeholder="${escapeHTML(field.placeholder || (field.id.includes('año') ? 'ej. 3 años' : ''))}" ${defaultValAttr} data-transform="${field.transform || 'none'}" ${field.requerido ? 'required' : ''} autocomplete="off" style="padding-top: 10px; padding-bottom: 10px;">
           </div>
         </div>
       `;
@@ -1053,6 +1053,20 @@ document.addEventListener('DOMContentLoaded', () => {
     navigateTo('view-welcome');
   });
 
+  // Aplicar Reglas de Formato Automático al salir del campo (blur)
+  document.addEventListener('blur', (e) => {
+    if (e.target.matches('.form-input, .form-textarea')) {
+      const transform = e.target.getAttribute('data-transform');
+      if (transform && transform !== 'none') {
+        let val = e.target.value;
+        if (transform === 'uppercase') val = val.toUpperCase();
+        else if (transform === 'lowercase') val = val.toLowerCase();
+        else if (transform === 'titlecase') val = toTitleCase(val);
+        e.target.value = val;
+      }
+    }
+  }, true);
+
   // Inicializar Iconos Lucide al inicio
   lucide.createIcons();
 });
@@ -1086,4 +1100,17 @@ function escapeJS(str) {
       default: return '';
     }
   });
+}
+
+function toTitleCase(str) {
+  if (!str) return '';
+  const prepositions = ['de', 'del', 'la', 'las', 'el', 'los', 'y', 'e', 'o', 'u', 'a', 'ante', 'bajo', 'cabe', 'con', 'contra', 'desde', 'en', 'entre', 'hacia', 'hasta', 'para', 'por', 'según', 'sin', 'so', 'sobre', 'tras'];
+  
+  return str.toLowerCase().split(/\s+/).map((word, index) => {
+    if (word.length === 0) return '';
+    if (index > 0 && prepositions.includes(word)) {
+      return word;
+    }
+    return word.charAt(0).toUpperCase() + word.slice(1);
+  }).join(' ');
 }
