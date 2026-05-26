@@ -1026,7 +1026,10 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Guardar Captura
-  document.getElementById('btn-submit-capture').addEventListener('click', submitCapturedForm);
+  const btnSubmitCapture = document.getElementById('btn-submit-capture');
+  if (btnSubmitCapture) {
+    btnSubmitCapture.addEventListener('click', submitCapturedForm);
+  }
 
   // Iniciar Sesión de Administrador
   document.getElementById('btn-execute-login').addEventListener('click', handleAdminLogin);
