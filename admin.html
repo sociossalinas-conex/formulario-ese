@@ -399,21 +399,9 @@
       </div>
       <!-- Actions Bar (Derecha) -->
       <div class="admin-actions-bar" style="display: flex; gap: 8px; align-items: center;">
-        <button class="btn-action-tab active" id="btn-show-editor">
-          <i data-lucide="sliders"></i>
-          <span>Editor de Formatos</span>
-        </button>
-        <button class="btn-action-tab" id="btn-show-database">
-          <i data-lucide="database"></i>
-          <span>Ver Base de Datos (Sheets)</span>
-        </button>
-        <button class="btn-action-tab" id="btn-show-events" style="opacity: 0.6; cursor: not-allowed;" title="Próximamente">
-          <i data-lucide="zap"></i>
-          <span>Eventos</span>
-        </button>
-        <button class="btn btn-secondary" onclick="window.close()" style="display: flex; align-items: center; gap: 6px; padding: 6px 12px; font-size: 0.85rem; background: rgba(239,68,68,0.08); color: #ef4444; border-color: rgba(239,68,68,0.15);">
-          <i data-lucide="x" style="width: 14px; height: 14px;"></i>
-          <span>Cerrar</span>
+        <button class="btn btn-secondary" onclick="window.location.href='index.html'" style="display: flex; align-items: center; gap: 6px; padding: 6px 12px; font-size: 0.85rem; background: rgba(37,99,235,0.08); color: var(--color-primary); border-color: rgba(37,99,235,0.15);">
+          <i data-lucide="arrow-left" style="width: 14px; height: 14px;"></i>
+          <span>Regresar al Formulario</span>
         </button>
       </div>
     </header>
@@ -422,18 +410,34 @@
       
       <!-- Sidebar de Plantillas -->
       <aside class="sidebar">
-        <h3 style="font-size: 1.1rem; margin-bottom: 4px;">Tus Plantillas</h3>
-        <p style="font-size: 0.8rem; color: var(--color-text-muted); margin-bottom: 12px;">Selecciona una para configurar</p>
-        
-        <div class="input-wrapper" style="margin-bottom: 16px;">
-          <i data-lucide="search" class="input-icon"></i>
-          <input type="text" id="search-templates" class="form-input" placeholder="Buscar cliente..." style="padding-top: 8px; padding-bottom: 8px;">
+        <!-- Menú de Navegación del Panel de Administración (Lado Izquierdo) -->
+        <div class="sidebar-nav-container" style="margin-bottom: 20px; background: rgba(37,99,235,0.03); border: 1px solid var(--border-card); border-radius: var(--border-radius-lg); padding: 12px; display: flex; flex-direction: column; gap: 8px;">
+          <h4 style="margin: 0 0 6px 0; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-text-muted); font-weight: 700;">Menú Principal</h4>
+          <button class="template-btn active" id="btn-show-editor" style="width: 100%; border: 1px solid transparent; padding: 10px 12px; font-size: 0.9rem; margin-top: 0;">
+            <i data-lucide="sliders" style="width: 18px; height: 18px;"></i>
+            <span>Configuración de Formatos</span>
+          </button>
+          <button class="template-btn" id="btn-show-database" style="width: 100%; border: 1px solid transparent; padding: 10px 12px; font-size: 0.9rem; margin-top: 0;">
+            <i data-lucide="database" style="width: 18px; height: 18px;"></i>
+            <span>Ver Base de Datos</span>
+          </button>
         </div>
-        
-        <div class="template-list" id="template-list">
-          <div style="padding: 20px; text-align: center; color: var(--color-text-muted);">
-            <i data-lucide="loader-2" class="loading-spinner"></i>
-            <p>Cargando...</p>
+
+        <!-- Selector de Plantillas (Se colapsa/oculta al cambiar a Base de Datos) -->
+        <div id="sidebar-templates-selector" style="display: block;">
+          <h3 style="font-size: 1.1rem; margin-bottom: 4px;">Tus Plantillas</h3>
+          <p style="font-size: 0.8rem; color: var(--color-text-muted); margin-bottom: 12px;">Selecciona una para configurar</p>
+          
+          <div class="input-wrapper" style="margin-bottom: 16px;">
+            <i data-lucide="search" class="input-icon"></i>
+            <input type="text" id="search-templates" class="form-input" placeholder="Buscar cliente..." style="padding-top: 8px; padding-bottom: 8px;">
+          </div>
+          
+          <div class="template-list" id="template-list">
+            <div style="padding: 20px; text-align: center; color: var(--color-text-muted);">
+              <i data-lucide="loader-2" class="loading-spinner"></i>
+              <p>Cargando...</p>
+            </div>
           </div>
         </div>
       </aside>
@@ -501,55 +505,54 @@
         <p>Aquí podrás personalizar las pestañas, ayudas y opciones de cada campo.</p>
       </main>
 
+      <!-- Vista de Base de Datos Tipo Sheet (Oculta por defecto, dentro del layout principal) -->
+      <main class="editor-main" id="database-sheet-view" style="display: none; flex-direction: column; width: 100%; box-sizing: border-box;">
+        <div class="editor-header" style="background: rgba(16, 185, 129, 0.05); border-color: rgba(16, 185, 129, 0.1); margin-bottom: 20px;">
+          <div>
+            <h2 style="margin: 0 0 4px 0; color: #10b981; display: flex; align-items: center; gap: 8px;">
+              <i data-lucide="database"></i>
+              <span>Base de Datos de Capturas</span>
+            </h2>
+            <p id="db-studies-count" style="margin: 0; font-size: 0.9rem; color: var(--color-text-muted);">Cargando registros...</p>
+          </div>
+          <div style="display: flex; gap: 12px;">
+            <button class="btn btn-primary" id="btn-export-all-excel" style="background: #10b981; border-color: #10b981; display: flex; align-items: center; gap: 8px; font-weight: bold; cursor: pointer;">
+              <i data-lucide="download"></i>
+              <span>Descargar Excel (Spreadsheet)</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="input-wrapper" style="margin-bottom: 20px;">
+          <i data-lucide="search" class="input-icon"></i>
+          <input type="text" id="search-db-captures" class="form-input" placeholder="Buscar por candidato, cliente, marca comercial..." autocomplete="off">
+        </div>
+
+        <!-- Tabla estilo hoja de cálculo / excel -->
+        <div style="width: 100%; overflow-x: auto; border: 1px solid var(--border-card); border-radius: 8px; background: var(--bg-card);">
+          <table class="db-sheet-table">
+            <thead>
+              <tr style="background: rgba(0, 0, 0, 0.03); border-bottom: 2px solid var(--border-card);">
+                <th>Fecha</th>
+                <th>Candidato</th>
+                <th>Cliente (Empresa)</th>
+                <th>Marca Comercial</th>
+                <th>Campos Capturados</th>
+                <th style="text-align: center;">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="db-sheet-tbody">
+              <tr>
+                <td colspan="6" style="padding: 24px; text-align: center; color: var(--color-text-muted);">
+                  <i data-lucide="loader-2" class="loading-spinner"></i> Cargando base de datos de capturas...
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </main>
+
     </div>
-
-    <!-- Vista de Base de Datos Tipo Sheet (Oculta por defecto) -->
-    <main class="editor-main" id="database-sheet-view" style="display: none; flex-direction: column; width: 100%; box-sizing: border-box;">
-      <div class="editor-header" style="background: rgba(16, 185, 129, 0.05); border-color: rgba(16, 185, 129, 0.1); margin-bottom: 20px;">
-        <div>
-          <h2 style="margin: 0 0 4px 0; color: #10b981; display: flex; align-items: center; gap: 8px;">
-            <i data-lucide="database"></i>
-            <span>Base de Datos de Capturas</span>
-          </h2>
-          <p id="db-studies-count" style="margin: 0; font-size: 0.9rem; color: var(--color-text-muted);">Cargando registros...</p>
-        </div>
-        <div style="display: flex; gap: 12px;">
-          <button class="btn btn-primary" id="btn-export-all-excel" style="background: #10b981; border-color: #10b981; display: flex; align-items: center; gap: 8px; font-weight: bold; cursor: pointer;">
-            <i data-lucide="download"></i>
-            <span>Descargar Excel (Spreadsheet)</span>
-          </button>
-        </div>
-      </div>
-
-      <div class="input-wrapper" style="margin-bottom: 20px;">
-        <i data-lucide="search" class="input-icon"></i>
-        <input type="text" id="search-db-captures" class="form-input" placeholder="Buscar por candidato, cliente, marca comercial..." autocomplete="off">
-      </div>
-
-      <!-- Tabla estilo hoja de cálculo / excel -->
-      <div style="width: 100%; overflow-x: auto; border: 1px solid var(--border-card); border-radius: 8px; background: var(--bg-card);">
-        <table class="db-sheet-table">
-          <thead>
-            <tr style="background: rgba(0, 0, 0, 0.03); border-bottom: 2px solid var(--border-card);">
-              <th>Fecha</th>
-              <th>Candidato</th>
-              <th>Cliente (Empresa)</th>
-              <th>Marca Comercial</th>
-              <th>Campos Capturados</th>
-              <th style="text-align: center;">Acciones</th>
-            </tr>
-          </thead>
-          <tbody id="db-sheet-tbody">
-            <tr>
-              <td colspan="6" style="padding: 24px; text-align: center; color: var(--color-text-muted);">
-                <i data-lucide="loader-2" class="loading-spinner"></i> Cargando base de datos de capturas...
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </main>
-  </div>
 
   <div id="toast" class="toast-message">
     <i data-lucide="check-circle"></i> Cambios guardados con éxito en Supabase
