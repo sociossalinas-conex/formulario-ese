@@ -24,6 +24,70 @@ function getSupabaseClient() {
   return null;
 }
 
+// Funciones globales para etiquetas de ayuda y autocompletar candidatos
+window.toggleHelpBlock = function(fieldId) {
+  const block = document.getElementById(`help-block-${fieldId}`);
+  if (block) {
+    const isHidden = block.style.display === 'none';
+    block.style.display = isHidden ? 'block' : 'none';
+  }
+};
+
+window.loadCandidateData = function(capturedData, candidateExactName) {
+  if (!capturedData) return;
+
+  // Actualizar el nombre del candidato con el nombre exacto
+  const candidateInput = document.getElementById('candidate-name-input');
+  if (candidateInput) {
+    candidateInput.value = candidateExactName;
+    // Sincronizar sticky header
+    const stickyHeader = document.getElementById('sticky-candidate-header');
+    const stickyName = document.getElementById('sticky-candidate-name-text');
+    if (stickyHeader && stickyName) {
+      stickyHeader.style.display = 'block';
+      stickyName.innerText = candidateExactName;
+    }
+  }
+
+  // Llenar cada campo del formulario
+  let loadedCount = 0;
+  Object.keys(capturedData).forEach(key => {
+    const el = document.getElementById(`field-${key}`);
+    if (el) {
+      el.value = capturedData[key];
+      // Trigger event to make sure conditional and mirroring logic runs!
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+      loadedCount++;
+    }
+  });
+
+  // Casos especiales (por ejemplo, detalles de demandas)
+  if (capturedData['demandas_detalles']) {
+    const demandasDetailsEl = document.getElementById('field-demandas-details');
+    if (demandasDetailsEl) {
+      demandasDetailsEl.value = capturedData['demandas_detalles'];
+      demandasDetailsEl.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    const demandasSelect = document.getElementById('field-demandas');
+    if (demandasSelect) {
+      demandasSelect.value = 'Sí';
+      demandasSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  }
+
+  // Actualizar barra de progreso
+  if (state && state.matchedTemplate && state.matchedTemplate.form_schema) {
+    setupProgressTracking(state.matchedTemplate.form_schema);
+  }
+
+  // Esconder banner
+  const banner = document.getElementById('candidate-lookup-banner');
+  if (banner) banner.style.display = 'none';
+
+  alert(`¡Datos del estudio previo cargados con éxito! (${loadedCount} campos autocompletados).`);
+};
+
 // Intentar inicialización inmediata
 getSupabaseClient();
 
@@ -410,6 +474,8 @@ function buildDynamicForm(template) {
   // Bug fix: Clean previous data completely
   document.getElementById('candidate-name-input').value = "";
   document.getElementById('sticky-candidate-header').style.display = 'none';
+  const lookupBanner = document.getElementById('candidate-lookup-banner');
+  if (lookupBanner) lookupBanner.style.display = 'none';
 
   let schema = template.form_schema;
   
@@ -477,15 +543,27 @@ function buildDynamicForm(template) {
     
     // Lógica especial para Demandas
     if (config.dynamicDemandas !== false && field.id === 'demandas') {
+      const helpText = "Preguntar si ¿Alguna vez a tenido alguna demanda? no importa qué tipo de demanda";
+      const tooltipHtml = `
+        <button type="button" class="field-help-toggle" onclick="toggleHelpBlock('${field.id}')" aria-label="Ayuda">
+          <i data-lucide="help-circle" style="width:16px;height:16px;"></i>
+        </button>
+      `;
+      const helpBlockHtml = `
+        <div id="help-block-${field.id}" class="field-help-block" style="display:none;">
+          ${escapeHTML(helpText)}
+        </div>
+      `;
+
       formGroup.innerHTML = `
-        <label class="form-group-select-label" style="margin-bottom:6px; display:flex; align-items:center; gap: 8px;">
-          ${escapeHTML(formatLabel(field.label))} ${field.requerido ? '*' : ''}
-          <div class="tooltip-container" onclick="this.classList.toggle('active')">
-            <i data-lucide="help-circle" style="width:16px;height:16px;"></i>
-            <div class="tooltip-content">Preguntar si ¿Alguna vez a tenido alguna demanda? no importa qué tipo de demanda</div>
-          </div>
-        </label>
-        <div class="select-wrapper">
+        <div class="field-label-row">
+          <label class="field-label-v2">
+            ${escapeHTML(formatLabel(field.label))} ${field.requerido ? '<span class="required-star">*</span>' : ''}
+          </label>
+          ${tooltipHtml}
+        </div>
+        ${helpBlockHtml}
+        <div class="select-wrapper" style="width: 100%;">
           <i data-lucide="scale" class="select-icon"></i>
           <select id="field-${field.id}" class="form-select" ${field.requerido ? 'required' : ''}>
             <option value="" disabled selected>Seleccione...</option>
@@ -493,7 +571,7 @@ function buildDynamicForm(template) {
             <option value="Sí">Sí</option>
           </select>
         </div>
-        <div id="demandas-details-container" style="display:none; margin-top: 12px;">
+        <div id="demandas-details-container" style="display:none; margin-top: 12px; width: 100%;">
           <textarea id="field-demandas-details" class="form-textarea" placeholder="Relate de manera detallada: ¿como fué la demanda, ¿contra quien? ¿en que año fue? ¿cual fue la resolución? etc."></textarea>
         </div>
       `;
@@ -528,30 +606,39 @@ function buildDynamicForm(template) {
     
     if (field.id === 'edad') isAge = true;
 
-    // Tooltips especiales y dinámicos
-    let tooltipHtml = '';
+    // Tooltips especiales y dinámicos (Rediseño de Ayuda en Bloque)
+    let helpText = '';
     if (field.ayuda && field.ayuda.trim() !== '') {
-      tooltipHtml = `
-        <div class="tooltip-container" onclick="this.classList.toggle('active')">
-          <i data-lucide="help-circle" style="width:16px;height:16px; color:var(--color-primary);"></i>
-          <div class="tooltip-content">${escapeHTML(field.ayuda)}</div>
-        </div>
-      `;
+      helpText = field.ayuda.trim();
     } else if (field.id.includes('puesto') && secId === 'sec-estudio') {
+      helpText = "Puesto al que concursa dentro del proceso de la empresa";
+    }
+
+    let tooltipHtml = '';
+    let helpBlockHtml = '';
+    if (helpText) {
       tooltipHtml = `
-        <div class="tooltip-container" onclick="this.classList.toggle('active')">
-          <i data-lucide="help-circle" style="width:16px;height:16px; color:var(--color-primary);"></i>
-          <div class="tooltip-content">Puesto al que concursa dentro del proceso de la empresa</div>
+        <button type="button" class="field-help-toggle" onclick="toggleHelpBlock('${field.id}')" aria-label="Ayuda">
+          <i data-lucide="help-circle" style="width:16px;height:16px;"></i>
+        </button>
+      `;
+      helpBlockHtml = `
+        <div id="help-block-${field.id}" class="field-help-block" style="display:none;">
+          ${escapeHTML(helpText)}
         </div>
       `;
     }
 
     if (dropdownOptions) {
       formGroup.innerHTML = `
-        <label class="form-group-select-label" style="margin-bottom:6px; display:flex; align-items:center; gap: 8px;">
-          ${escapeHTML(formatLabel(field.label))} ${field.requerido ? '*' : ''}
-        </label>
-        <div class="select-wrapper">
+        <div class="field-label-row">
+          <label class="field-label-v2">
+            ${escapeHTML(formatLabel(field.label))} ${field.requerido ? '<span class="required-star">*</span>' : ''}
+          </label>
+          ${tooltipHtml}
+        </div>
+        ${helpBlockHtml}
+        <div class="select-wrapper" style="width: 100%;">
           <i data-lucide="list" class="select-icon"></i>
           <select id="field-${field.id}" class="form-select" ${linkFromAttr} ${field.requerido ? 'required' : ''}>
             <option value="" disabled selected>Seleccione...</option>
@@ -561,11 +648,16 @@ function buildDynamicForm(template) {
       `;
     } else if (field.tipo === 'textarea') {
       formGroup.innerHTML = `
-        <label class="form-group-select-label" style="margin-bottom:6px; display:flex; align-items:center; gap: 8px;">
-          ${escapeHTML(formatLabel(field.label))} ${field.requerido ? '*' : ''}
+        <div class="field-label-row">
+          <label class="field-label-v2">
+            ${escapeHTML(formatLabel(field.label))} ${field.requerido ? '<span class="required-star">*</span>' : ''}
+          </label>
           ${tooltipHtml}
-        </label>
-        <textarea id="field-${field.id}" class="form-textarea" placeholder="${escapeHTML(field.placeholder || '')}" data-transform="${field.transform || 'none'}" ${linkFromAttr} ${field.requerido ? 'required' : ''}></textarea>
+        </div>
+        ${helpBlockHtml}
+        <div style="width: 100%;">
+          <textarea id="field-${field.id}" class="form-textarea" placeholder="${escapeHTML(field.placeholder || '')}" data-transform="${field.transform || 'none'}" ${linkFromAttr} ${field.requerido ? 'required' : ''}></textarea>
+        </div>
       `;
     } else {
       let iconName = 'edit-2';
@@ -584,15 +676,16 @@ function buildDynamicForm(template) {
       }
 
       formGroup.innerHTML = `
-        <div class="input-wrapper" style="position:relative;">
-          <label style="display:flex; align-items:center; gap: 8px; font-size: 0.8rem; margin-bottom: 4px; font-weight: 500; color: var(--color-text-main);">
-            ${escapeHTML(formatLabel(field.label))} ${field.requerido ? '*' : ''}
-            ${tooltipHtml}
+        <div class="field-label-row">
+          <label class="field-label-v2">
+            ${escapeHTML(formatLabel(field.label))} ${field.requerido ? '<span class="required-star">*</span>' : ''}
           </label>
-          <div style="position:relative;">
-            <i data-lucide="${iconName}" class="input-icon" style="top: 50%; transform: translateY(-50%);"></i>
-            <input type="${field.tipo}" id="field-${field.id}" class="form-input" placeholder="${escapeHTML(field.placeholder || (field.id.includes('año') ? 'ej. 3 años' : ''))}" ${defaultValAttr} data-transform="${field.transform || 'none'}" ${linkFromAttr} ${field.requerido ? 'required' : ''} autocomplete="off" style="padding-top: 10px; padding-bottom: 10px;">
-          </div>
+          ${tooltipHtml}
+        </div>
+        ${helpBlockHtml}
+        <div style="position:relative; width: 100%;">
+          <i data-lucide="${iconName}" class="input-icon" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); pointer-events: none; color: var(--color-text-dark); width: 18px; height: 18px;"></i>
+          <input type="${field.tipo}" id="field-${field.id}" class="form-input" placeholder="${escapeHTML(field.placeholder || (field.id.includes('año') ? 'ej. 3 años' : ''))}" ${defaultValAttr} data-transform="${field.transform || 'none'}" ${linkFromAttr} ${field.requerido ? 'required' : ''} autocomplete="off" style="width: 100%; padding-left: 42px; padding-top: 10px; padding-bottom: 10px; box-sizing: border-box;">
         </div>
       `;
     }
@@ -1038,10 +1131,66 @@ document.addEventListener('DOMContentLoaded', () => {
       // Limpiar candidato
       document.getElementById('candidate-name-input').value = '';
       document.getElementById('sticky-candidate-header').style.display = 'none';
+      const lookupBanner = document.getElementById('candidate-lookup-banner');
+      if (lookupBanner) lookupBanner.style.display = 'none';
       document.getElementById('dynamic-capture-form').innerHTML = ''; // reset content
       navigateTo('view-welcome');
     }
   });
+
+  // Búsqueda en base de datos para Candidatos existentes (Autocompletado histórico)
+  const candidateInput = document.getElementById('candidate-name-input');
+  if (candidateInput) {
+    let lookupTimeout = null;
+    candidateInput.addEventListener('input', (e) => {
+      const banner = document.getElementById('candidate-lookup-banner');
+      if (banner) banner.style.display = 'none';
+
+      const name = e.target.value.trim();
+      if (name.length < 3) return;
+
+      if (lookupTimeout) clearTimeout(lookupTimeout);
+      lookupTimeout = setTimeout(async () => {
+        try {
+          const client = getSupabaseClient();
+          if (!client) return;
+
+          console.log(`Buscando coincidencias para candidate_name: "${name}"...`);
+          const { data, error } = await client
+            .from('socioeconomic_captures')
+            .select('*')
+            .ilike('candidate_name', `%${name}%`)
+            .order('created_at', { ascending: false })
+            .limit(1);
+
+          if (error) {
+            console.error("Error al buscar candidato:", error);
+            return;
+          }
+
+          if (data && data.length > 0) {
+            const match = data[0];
+            const foundData = match.captured_data;
+            const bannerMessage = document.getElementById('lookup-banner-message');
+            const btnLoad = document.getElementById('btn-load-candidate-data');
+            
+            if (bannerMessage && btnLoad && banner) {
+              bannerMessage.innerText = `¡Estudio previo encontrado para "${match.candidate_name}"!`;
+              banner.style.display = 'block';
+              
+              btnLoad.onclick = () => {
+                if (foundData && typeof window.loadCandidateData === 'function') {
+                  window.loadCandidateData(foundData, match.candidate_name);
+                }
+              };
+            }
+          }
+        } catch (err) {
+          console.error("Excepción en búsqueda de candidato:", err);
+        }
+      }, 600); // 600ms debounce
+    });
+  }
 
   // Guardar Captura
   const btnSubmitCapture = document.getElementById('btn-submit-capture');
