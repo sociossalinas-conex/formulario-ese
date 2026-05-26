@@ -675,8 +675,20 @@ document.getElementById('btn-show-editor').addEventListener('click', () => {
   document.getElementById('btn-show-editor').classList.add('active');
   document.getElementById('btn-show-database').classList.remove('active');
   
+  // Mostrar selector de plantillas en la barra lateral izquierda
+  document.getElementById('sidebar-templates-selector').style.display = 'block';
+  
+  // Ocultar panel de base de datos
   document.getElementById('database-sheet-view').style.display = 'none';
-  document.getElementById('admin-editor-layout').style.display = 'grid';
+  
+  // Mostrar editor o empty state según corresponda
+  if (currentTemplate) {
+    document.getElementById('editor-main').style.display = 'block';
+    document.getElementById('empty-state').style.display = 'none';
+  } else {
+    document.getElementById('editor-main').style.display = 'none';
+    document.getElementById('empty-state').style.display = 'flex';
+  }
 });
 
 // Cambiar a vista de Base de Datos (Sheets)
@@ -684,7 +696,14 @@ document.getElementById('btn-show-database').addEventListener('click', () => {
   document.getElementById('btn-show-database').classList.add('active');
   document.getElementById('btn-show-editor').classList.remove('active');
   
-  document.getElementById('admin-editor-layout').style.display = 'none';
+  // Ocultar selector de plantillas de la barra lateral
+  document.getElementById('sidebar-templates-selector').style.display = 'none';
+  
+  // Ocultar editor y empty state
+  document.getElementById('editor-main').style.display = 'none';
+  document.getElementById('empty-state').style.display = 'none';
+  
+  // Mostrar vista de base de datos en la misma ventana
   document.getElementById('database-sheet-view').style.display = 'flex';
   
   loadDatabaseCaptures();
