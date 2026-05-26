@@ -36,7 +36,7 @@ const SECTION_OPTIONS = [
   { val: 'sec-referencias', label: '6. Referencias Personales' },
   { val: 'sec-laboral', label: '7. Historial Laboral' },
   { val: 'sec-evidencias', label: '8. Documentos y Evidencias' },
-  { val: 'hidden', label: '❌ Ocultar del Formulario' }
+  { val: 'hidden', label: '❌ Ocultos / No Mostrar' }
 ];
 
 async function loadTemplates() {
@@ -48,12 +48,18 @@ async function loadTemplates() {
   }
   
   templates = data;
+  renderTemplateList();
+}
+
+function renderTemplateList(filter = '') {
   const listEl = document.getElementById('template-list');
   listEl.innerHTML = '';
   
-  templates.forEach(t => {
+  const filtered = templates.filter(t => t.name.toLowerCase().includes(filter.toLowerCase()));
+  
+  filtered.forEach(t => {
     const btn = document.createElement('button');
-    btn.className = 'template-btn';
+    btn.className = `template-btn ${currentTemplate && currentTemplate.id === t.id ? 'active' : ''}`;
     btn.innerHTML = `<i data-lucide="file-text" style="width: 16px; height: 16px;"></i> ${t.name}`;
     btn.onclick = () => selectTemplate(t.id);
     listEl.appendChild(btn);
@@ -61,8 +67,12 @@ async function loadTemplates() {
   lucide.createIcons();
 }
 
+document.getElementById('search-templates').addEventListener('input', (e) => {
+  renderTemplateList(e.target.value);
+});
+
 function selectTemplate(id) {
-  currentTemplate = templates.find(t => t.id === id);
+  currentTemplate = JSON.parse(JSON.stringify(templates.find(t => t.id === id))); // Clon profundo
   
   document.querySelectorAll('.template-btn').forEach(btn => btn.classList.remove('active'));
   event.currentTarget.classList.add('active');
@@ -71,122 +81,275 @@ function selectTemplate(id) {
   document.getElementById('editor-main').style.display = 'block';
   
   document.getElementById('current-template-name').innerText = currentTemplate.name;
-  document.getElementById('current-template-count').innerText = `${currentTemplate.form_schema.length} variables detectadas`;
+  document.getElementById('current-template-count').innerText = `${currentTemplate.form_schema.length} campos detectados`;
   
-  renderFields();
+  // Asegurar que tengan sección asignada
+  currentTemplate.form_schema.forEach(field => {
+    if (!field.section) field.section = getSuggestedSection(field.id);
+  });
+  
+  renderFieldsGrouped();
 }
 
-function renderFields() {
+// Búsqueda de campos
+document.getElementById('search-fields').addEventListener('input', (e) => {
+  const query = e.target.value.toLowerCase();
+  document.querySelectorAll('.field-accordion').forEach(card => {
+    const text = card.textContent.toLowerCase();
+    const id = card.dataset.id.toLowerCase();
+    if (text.includes(query) || id.includes(query)) {
+      card.style.display = 'block';
+    } else {
+      card.style.display = 'none';
+    }
+  });
+});
+
+let sortableInstances = [];
+
+function renderFieldsGrouped() {
   const container = document.getElementById('fields-container');
   container.innerHTML = '';
   
-  currentTemplate.form_schema.forEach((field, index) => {
-    // Definir sección sugerida si no tiene
-    const currentSec = field.section || getSuggestedSection(field.id);
+  // Limpiar instancias previas de Sortable
+  sortableInstances.forEach(s => s.destroy());
+  sortableInstances = [];
+  
+  SECTION_OPTIONS.forEach(secDef => {
+    const fieldsInSection = currentTemplate.form_schema.filter(f => f.section === secDef.val);
     
-    const card = document.createElement('div');
-    card.className = `field-card ${currentSec === 'hidden' ? 'hidden-field' : ''}`;
-    card.dataset.index = index;
-    card.dataset.id = field.id;
+    // Contenedor de sección
+    const secGroup = document.createElement('div');
+    secGroup.className = 'section-group';
+    secGroup.dataset.section = secDef.val;
     
-    // Select HTML for Sections
-    let secSelectHtml = `<select class="control-input field-section">`;
-    SECTION_OPTIONS.forEach(opt => {
-      secSelectHtml += `<option value="${opt.val}" ${currentSec === opt.val ? 'selected' : ''}>${opt.label}</option>`;
-    });
-    secSelectHtml += `</select>`;
-    
-    // Select HTML for Type
-    let typeSelectHtml = `
-      <select class="control-input field-type" onchange="toggleOptionsRow(this)">
-        <option value="text" ${field.tipo === 'text' ? 'selected' : ''}>Texto Libre</option>
-        <option value="textarea" ${field.tipo === 'textarea' ? 'selected' : ''}>Área de Texto (Múltiples Líneas)</option>
-        <option value="number" ${field.tipo === 'number' ? 'selected' : ''}>Número</option>
-        <option value="date" ${field.tipo === 'date' ? 'selected' : ''}>Fecha</option>
-        <option value="tel" ${field.tipo === 'tel' ? 'selected' : ''}>Teléfono</option>
-        <option value="email" ${field.tipo === 'email' ? 'selected' : ''}>Correo Electrónico</option>
-        <option value="select" ${field.tipo === 'select' ? 'selected' : ''}>Lista Desplegable (Dropbox)</option>
-      </select>
+    secGroup.innerHTML = `
+      <h3 class="section-title">
+        <span>${secDef.label}</span>
+        <span style="font-size: 0.8rem; background: rgba(37,99,235,0.1); padding: 4px 8px; border-radius: 12px;">${fieldsInSection.length} campos</span>
+      </h3>
+      <div class="sortable-list" id="list-${secDef.val}"></div>
     `;
     
-    // HTML Completo
-    card.innerHTML = `
-      <div class="field-header">
-        <div style="font-weight: 600; color: var(--color-primary);">${field.label}</div>
+    container.appendChild(secGroup);
+    
+    const listContainer = secGroup.querySelector('.sortable-list');
+    
+    fieldsInSection.forEach(field => {
+      const card = createFieldAccordion(field);
+      listContainer.appendChild(card);
+    });
+    
+    // Inicializar Sortable
+    const sortable = Sortable.create(listContainer, {
+      group: 'shared', // Permite arrastrar entre secciones
+      animation: 150,
+      handle: '.drag-handle',
+      ghostClass: 'sortable-ghost',
+      onEnd: function (evt) {
+        // Al soltar en una nueva sección, actualizamos visualmente el switch si se fue a hidden
+        const toSection = evt.to.closest('.section-group').dataset.section;
+        const itemEl = evt.item;
+        
+        // Actualizar switch
+        const switchEl = itemEl.querySelector('.visibility-switch');
+        if (switchEl) {
+          switchEl.checked = toSection !== 'hidden';
+        }
+        
+        // Actualizar opacidad
+        if (toSection === 'hidden') itemEl.classList.add('hidden-field');
+        else itemEl.classList.remove('hidden-field');
+      }
+    });
+    
+    sortableInstances.push(sortable);
+  });
+  
+  lucide.createIcons();
+}
+
+window.toggleAccordion = function(headerElement) {
+  // Evitar toggle si se hizo clic en el drag handle o en el switch
+  if (event.target.closest('.drag-handle') || event.target.closest('.switch') || event.target.closest('.btn-delete')) return;
+  
+  const accordion = headerElement.closest('.field-accordion');
+  accordion.classList.toggle('open');
+};
+
+function createFieldAccordion(field) {
+  const isHidden = field.section === 'hidden';
+  
+  const card = document.createElement('div');
+  card.className = `field-accordion ${isHidden ? 'hidden-field' : ''}`;
+  card.dataset.id = field.id;
+  
+  let typeSelectHtml = `
+    <select class="control-input field-type" onchange="toggleOptionsRow(this)">
+      <option value="text" ${field.tipo === 'text' ? 'selected' : ''}>Texto Libre</option>
+      <option value="textarea" ${field.tipo === 'textarea' ? 'selected' : ''}>Área de Texto (Múltiples Líneas)</option>
+      <option value="number" ${field.tipo === 'number' ? 'selected' : ''}>Número</option>
+      <option value="date" ${field.tipo === 'date' ? 'selected' : ''}>Fecha</option>
+      <option value="tel" ${field.tipo === 'tel' ? 'selected' : ''}>Teléfono</option>
+      <option value="email" ${field.tipo === 'email' ? 'selected' : ''}>Correo Electrónico</option>
+      <option value="select" ${field.tipo === 'select' ? 'selected' : ''}>Lista Desplegable (Dropbox)</option>
+    </select>
+  `;
+  
+  card.innerHTML = `
+    <div class="field-header" onclick="toggleAccordion(this)">
+      <div class="field-header-left">
+        <div class="drag-handle"><i data-lucide="grip-vertical"></i></div>
+        <div class="field-title">${field.label || field.id}</div>
         <div class="field-id">${field.id}</div>
       </div>
+      
+      <div style="display: flex; align-items: center; gap: 16px;">
+        <div class="switch-container">
+          <label class="switch">
+            <input type="checkbox" class="visibility-switch" ${!isHidden ? 'checked' : ''} onchange="toggleVisibility(this)">
+            <span class="slider"></span>
+          </label>
+        </div>
+        <button class="btn-icon btn-delete" style="color: #ef4444; border:none; background:transparent;" onclick="deleteField(this)">
+          <i data-lucide="trash-2" style="width: 16px; height: 16px;"></i>
+        </button>
+      </div>
+    </div>
+    
+    <div class="field-body">
       <div class="field-controls">
         <div class="control-group">
-          <label class="control-label">Ubicación (Pestaña)</label>
-          ${secSelectHtml}
+          <label class="control-label">Etiqueta (Read-Only)</label>
+          <input type="text" class="control-input field-label" value="${field.label}" readonly>
         </div>
         <div class="control-group">
           <label class="control-label">Tipo de Campo</label>
           ${typeSelectHtml}
         </div>
-        <div class="control-group">
-          <label class="control-label">Etiqueta Personalizada</label>
-          <input type="text" class="control-input field-label" value="${field.label}">
+        
+        <div class="control-group date-options-row" style="display: ${field.tipo === 'date' ? 'flex' : 'none'}; flex-direction: row; align-items: center; gap: 8px; margin-top: 8px;">
+          <input type="checkbox" class="field-default-today" id="chk-today-${field.id}" ${field.defaultToday ? 'checked' : ''}>
+          <label for="chk-today-${field.id}" style="font-size: 0.9rem; font-weight: 500;">Fecha de hoy por defecto</label>
         </div>
+
         <div class="control-group">
           <label class="control-label">Placeholder (Texto fondo)</label>
           <input type="text" class="control-input field-placeholder" value="${field.placeholder || ''}" placeholder="Ej. Escribe a 10 dígitos">
         </div>
+        <div class="control-group">
+          <label class="control-label">Texto de Ayuda (Globito '?')</label>
+          <input type="text" class="control-input field-ayuda" value="${field.ayuda || ''}" placeholder="Instrucción que aparecerá al pasar el mouse por encima">
+        </div>
+
         <div class="control-group options-row" style="display: ${field.tipo === 'select' ? 'flex' : 'none'};">
           <label class="control-label">Opciones del Menú Desplegable (Separadas por comas)</label>
           <input type="text" class="control-input field-opciones" value="${field.opciones ? field.opciones.join(', ') : ''}" placeholder="Ej. Competente, No Competente, Con Reservas">
         </div>
-        <div class="control-group options-row">
-          <label class="control-label">Texto de Ayuda (Globito '?')</label>
-          <input type="text" class="control-input field-ayuda" value="${field.ayuda || ''}" placeholder="Instrucción que aparecerá al pasar el mouse por encima">
-        </div>
       </div>
-    `;
-    
-    container.appendChild(card);
-  });
+    </div>
+  `;
+  
+  return card;
 }
 
-// Para mostrar u ocultar la fila de opciones cuando se cambia a 'select'
+// Lógica de UI para los acordeones
 window.toggleOptionsRow = function(selectElem) {
   const isSelect = selectElem.value === 'select';
-  const row = selectElem.closest('.field-controls').querySelector('.options-row');
-  row.style.display = isSelect ? 'flex' : 'none';
+  const isDate = selectElem.value === 'date';
+  
+  const controls = selectElem.closest('.field-controls');
+  const optionsRow = controls.querySelector('.options-row');
+  const dateRow = controls.querySelector('.date-options-row');
+  
+  if (optionsRow) optionsRow.style.display = isSelect ? 'flex' : 'none';
+  if (dateRow) dateRow.style.display = isDate ? 'flex' : 'none';
 };
+
+window.toggleVisibility = function(checkboxElem) {
+  const accordion = checkboxElem.closest('.field-accordion');
+  if (checkboxElem.checked) {
+    accordion.classList.remove('hidden-field');
+    // Mover visualmente a Datos Personales (como fallback general)
+    document.getElementById('list-sec-personales').appendChild(accordion);
+  } else {
+    accordion.classList.add('hidden-field');
+    // Mover a la sección oculta
+    document.getElementById('list-hidden').appendChild(accordion);
+  }
+};
+
+window.deleteField = function(btnElem) {
+  if (confirm('¿Estás seguro de que quieres eliminar este campo de la plantilla?')) {
+    const accordion = btnElem.closest('.field-accordion');
+    accordion.remove();
+  }
+};
+
+// Agregar nuevo campo manual
+document.getElementById('btn-add-field').addEventListener('click', () => {
+  const newId = prompt('Escribe el ID (sin espacios) del nuevo campo:');
+  if (!newId || newId.trim() === '') return;
+  
+  const id = newId.trim().toLowerCase().replace(/\s+/g, '_');
+  
+  const newField = {
+    id: id,
+    label: id.replace(/_/g, ' '),
+    tipo: 'text',
+    section: 'sec-personales'
+  };
+  
+  const card = createFieldAccordion(newField);
+  card.classList.add('open');
+  document.getElementById('list-sec-personales').insertBefore(card, document.getElementById('list-sec-personales').firstChild);
+  lucide.createIcons();
+  
+  // Scroll hacia el nuevo elemento
+  card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+});
+
 
 document.getElementById('btn-save').addEventListener('click', async () => {
   if (!currentTemplate) return;
   
-  const cards = document.querySelectorAll('.field-card');
   const newSchema = [];
   
-  cards.forEach(card => {
-    const id = card.dataset.id;
-    const originalField = currentTemplate.form_schema.find(f => f.id === id);
+  // Extraer información iterando sobre cada section-group para respetar el orden visual del DOM!
+  const sectionGroups = document.querySelectorAll('.section-group');
+  
+  sectionGroups.forEach(group => {
+    const sectionVal = group.dataset.section;
+    const cards = group.querySelectorAll('.field-accordion');
     
-    const section = card.querySelector('.field-section').value;
-    const tipo = card.querySelector('.field-type').value;
-    const label = card.querySelector('.field-label').value;
-    const placeholder = card.querySelector('.field-placeholder').value;
-    const opcionesStr = card.querySelector('.field-opciones').value;
-    const ayuda = card.querySelector('.field-ayuda').value;
-    
-    const updatedField = {
-      ...originalField,
-      label: label,
-      tipo: tipo,
-      section: section,
-      placeholder: placeholder,
-      ayuda: ayuda
-    };
-    
-    if (tipo === 'select' && opcionesStr.trim() !== '') {
-      updatedField.opciones = opcionesStr.split(',').map(s => s.trim()).filter(s => s !== '');
-    } else {
-      delete updatedField.opciones;
-    }
-    
-    newSchema.push(updatedField);
+    cards.forEach(card => {
+      const id = card.dataset.id;
+      
+      const tipo = card.querySelector('.field-type').value;
+      const label = card.querySelector('.field-label').value;
+      const placeholder = card.querySelector('.field-placeholder').value;
+      const opcionesStr = card.querySelector('.field-opciones').value;
+      const ayuda = card.querySelector('.field-ayuda').value;
+      
+      const chkToday = card.querySelector('.field-default-today');
+      const defaultToday = chkToday ? chkToday.checked : false;
+      
+      const updatedField = {
+        id: id,
+        label: label,
+        tipo: tipo,
+        section: sectionVal,
+        placeholder: placeholder,
+        ayuda: ayuda,
+        defaultToday: defaultToday
+      };
+      
+      if (tipo === 'select' && opcionesStr.trim() !== '') {
+        updatedField.opciones = opcionesStr.split(',').map(s => s.trim()).filter(s => s !== '');
+      }
+      
+      newSchema.push(updatedField);
+    });
   });
   
   // Guardar en Supabase
@@ -205,8 +368,10 @@ document.getElementById('btn-save').addEventListener('click', async () => {
     return;
   }
   
-  // Actualizar template local
-  currentTemplate.form_schema = newSchema;
+  // Actualizar template local original
+  const templateIdx = templates.findIndex(t => t.id === currentTemplate.id);
+  templates[templateIdx].form_schema = newSchema;
+  currentTemplate.form_schema = JSON.parse(JSON.stringify(newSchema));
   
   btn.innerHTML = originalText;
   lucide.createIcons();

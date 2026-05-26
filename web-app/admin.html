@@ -7,8 +7,10 @@
   
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="index.css">
+  
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
   
   <style>
     body {
@@ -19,7 +21,7 @@
     }
     
     .admin-container {
-      max-width: 1200px;
+      max-width: 1400px;
       margin: 0 auto;
       padding: 24px;
     }
@@ -44,7 +46,7 @@
     
     .admin-layout {
       display: grid;
-      grid-template-columns: 280px 1fr;
+      grid-template-columns: 320px 1fr;
       gap: 24px;
       align-items: start;
     }
@@ -56,6 +58,9 @@
       padding: 16px;
       position: sticky;
       top: 24px;
+      max-height: calc(100vh - 48px);
+      display: flex;
+      flex-direction: column;
     }
     
     .template-list {
@@ -63,6 +68,17 @@
       flex-direction: column;
       gap: 8px;
       margin-top: 16px;
+      overflow-y: auto;
+      flex: 1;
+      padding-right: 4px;
+    }
+    
+    .template-list::-webkit-scrollbar {
+      width: 6px;
+    }
+    .template-list::-webkit-scrollbar-thumb {
+      background: rgba(0,0,0,0.1);
+      border-radius: 4px;
     }
     
     .template-btn {
@@ -109,32 +125,74 @@
       border: 1px solid rgba(37, 99, 235, 0.1);
     }
     
-    .field-card {
-      background: rgba(255, 255, 255, 0.02);
+    .section-group {
+      margin-bottom: 32px;
+      background: rgba(0,0,0,0.01);
       border: 1px solid var(--border-card);
-      border-radius: 8px;
+      border-radius: 12px;
       padding: 16px;
+    }
+    
+    .section-title {
+      font-size: 1.2rem;
+      color: var(--color-primary);
       margin-bottom: 16px;
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 16px;
-      transition: border-color 0.2s ease;
-    }
-    
-    .field-card:hover {
-      border-color: rgba(37, 99, 235, 0.3);
-    }
-    
-    .field-card.hidden-field {
-      opacity: 0.5;
-    }
-    
-    .field-header {
+      padding-bottom: 8px;
+      border-bottom: 2px solid var(--color-primary-glow);
       display: flex;
       justify-content: space-between;
       align-items: center;
-      border-bottom: 1px solid rgba(0,0,0,0.05);
-      padding-bottom: 12px;
+    }
+    
+    .sortable-list {
+      min-height: 50px;
+      padding-bottom: 20px;
+    }
+    
+    /* Acordeón */
+    .field-accordion {
+      background: var(--bg-body);
+      border: 1px solid var(--border-card);
+      border-radius: 8px;
+      margin-bottom: 8px;
+      overflow: hidden;
+      transition: all 0.2s ease;
+    }
+    
+    .field-accordion.hidden-field {
+      opacity: 0.5;
+      border-style: dashed;
+    }
+    
+    .field-header {
+      padding: 12px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      background: var(--bg-card);
+    }
+    
+    .field-header:hover {
+      background: rgba(0,0,0,0.02);
+    }
+    
+    .field-header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .drag-handle {
+      cursor: grab;
+      color: var(--color-text-muted);
+      display: flex;
+      align-items: center;
+    }
+    
+    .field-title {
+      font-weight: 600;
+      color: var(--color-text-main);
     }
     
     .field-id {
@@ -146,6 +204,23 @@
       color: var(--color-text-muted);
     }
     
+    .field-body {
+      padding: 16px;
+      border-top: 1px solid var(--border-card);
+      display: none;
+      background: var(--bg-body);
+    }
+    
+    .field-accordion.open .field-body {
+      display: block;
+    }
+    
+    .field-accordion.open .field-header {
+      background: rgba(37, 99, 235, 0.03);
+      border-bottom-color: rgba(37, 99, 235, 0.1);
+    }
+    
+    /* Controles */
     .field-controls {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -169,7 +244,7 @@
       padding: 8px 12px;
       border: 1px solid var(--border-card);
       border-radius: 6px;
-      background: var(--bg-body);
+      background: var(--bg-card);
       color: var(--color-text-main);
       font-size: 0.9rem;
     }
@@ -179,8 +254,57 @@
       border-color: var(--color-primary);
     }
     
-    .options-row {
+    .control-input[readonly] {
+      background: rgba(0,0,0,0.03);
+      color: var(--color-text-muted);
+      cursor: not-allowed;
+    }
+    
+    .options-row, .date-options-row {
       grid-column: span 2;
+    }
+    
+    /* Switch */
+    .switch-container {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 40px;
+      height: 20px;
+    }
+    .switch input { 
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #ccc;
+      transition: .4s;
+      border-radius: 20px;
+    }
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 16px;
+      width: 16px;
+      left: 2px;
+      bottom: 2px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
+    input:checked + .slider {
+      background-color: var(--color-primary);
+    }
+    input:checked + .slider:before {
+      transform: translateX(20px);
     }
     
     .toast-message {
@@ -201,7 +325,6 @@
       gap: 8px;
       z-index: 1000;
     }
-    
     .toast-message.show {
       transform: translateY(0);
       opacity: 1;
@@ -233,7 +356,12 @@
       <!-- Sidebar de Plantillas -->
       <aside class="sidebar">
         <h3 style="font-size: 1.1rem; margin-bottom: 4px;">Tus Plantillas</h3>
-        <p style="font-size: 0.8rem; color: var(--color-text-muted);">Selecciona una para configurar</p>
+        <p style="font-size: 0.8rem; color: var(--color-text-muted); margin-bottom: 12px;">Selecciona una para configurar</p>
+        
+        <div class="input-wrapper" style="margin-bottom: 16px;">
+          <i data-lucide="search" class="input-icon"></i>
+          <input type="text" id="search-templates" class="form-input" placeholder="Buscar cliente..." style="padding-top: 8px; padding-bottom: 8px;">
+        </div>
         
         <div class="template-list" id="template-list">
           <div style="padding: 20px; text-align: center; color: var(--color-text-muted);">
@@ -250,14 +378,26 @@
             <h2 id="current-template-name" style="margin: 0 0 4px 0; color: var(--color-primary);">Nombre de Plantilla</h2>
             <p id="current-template-count" style="margin: 0; font-size: 0.9rem; color: var(--color-text-muted);">0 campos detectados</p>
           </div>
-          <button class="btn btn-primary" id="btn-save" style="display: flex; align-items: center; gap: 8px;">
-            <i data-lucide="save"></i>
-            <span>Guardar Cambios</span>
-          </button>
+          
+          <div style="display: flex; gap: 12px;">
+            <button class="btn btn-secondary" id="btn-add-field" style="display: flex; align-items: center; gap: 8px;">
+              <i data-lucide="plus"></i>
+              <span>Nuevo Campo</span>
+            </button>
+            <button class="btn btn-primary" id="btn-save" style="display: flex; align-items: center; gap: 8px;">
+              <i data-lucide="save"></i>
+              <span>Guardar Cambios</span>
+            </button>
+          </div>
+        </div>
+        
+        <div class="input-wrapper" style="margin-bottom: 24px;">
+          <i data-lucide="search" class="input-icon"></i>
+          <input type="text" id="search-fields" class="form-input" placeholder="Buscar pregunta..." autocomplete="off">
         </div>
         
         <div id="fields-container">
-          <!-- Campos generados aquí -->
+          <!-- Secciones y campos generados dinámicamente aquí -->
         </div>
       </main>
       
