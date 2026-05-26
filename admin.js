@@ -426,6 +426,227 @@ document.getElementById('btn-save').addEventListener('click', async () => {
   setTimeout(() => toast.classList.remove('show'), 3000);
 });
 
+// ==========================================================================
+// SECCIÓN DE BASE DE DATOS Y EXPORTACIÓN A EXCEL/SHEETS
+// ==========================================================================
+
+let dbCaptures = [];
+
+// Cambiar a vista del Editor de Formatos
+document.getElementById('btn-show-editor').addEventListener('click', () => {
+  document.getElementById('btn-show-editor').classList.add('active');
+  document.getElementById('btn-show-database').classList.remove('active');
+  
+  document.getElementById('database-sheet-view').style.display = 'none';
+  document.getElementById('admin-editor-layout').style.display = 'grid';
+});
+
+// Cambiar a vista de Base de Datos (Sheets)
+document.getElementById('btn-show-database').addEventListener('click', () => {
+  document.getElementById('btn-show-database').classList.add('active');
+  document.getElementById('btn-show-editor').classList.remove('active');
+  
+  document.getElementById('admin-editor-layout').style.display = 'none';
+  document.getElementById('database-sheet-view').style.display = 'flex';
+  
+  loadDatabaseCaptures();
+});
+
+// Cargar registros de capturas desde Supabase
+async function loadDatabaseCaptures() {
+  const tbody = document.getElementById('db-sheet-tbody');
+  const countLabel = document.getElementById('db-studies-count');
+  
+  try {
+    const { data, error } = await supabaseClient
+      .from('socioeconomic_captures')
+      .select('*')
+      .order('created_at', { ascending: false });
+      
+    if (error) {
+      console.error("Error al cargar capturas:", error);
+      tbody.innerHTML = `<tr><td colspan="6" style="padding: 24px; text-align: center; color: #ef4444;">Error al cargar registros de la base de datos: ${error.message}</td></tr>`;
+      countLabel.innerText = "Error de conexión";
+      return;
+    }
+    
+    dbCaptures = data || [];
+    countLabel.innerText = `${dbCaptures.length} estudios socioeconómicos capturados en total`;
+    
+    renderCapturesTable(dbCaptures);
+  } catch (err) {
+    console.error("Excepción en loadDatabaseCaptures:", err);
+    tbody.innerHTML = `<tr><td colspan="6" style="padding: 24px; text-align: center; color: #ef4444;">Excepción: ${err.message}</td></tr>`;
+  }
+}
+
+// Renderizar filas de capturas en la tabla estilo spreadsheet
+function renderCapturesTable(records) {
+  const tbody = document.getElementById('db-sheet-tbody');
+  
+  if (records.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" style="padding: 24px; text-align: center; color: var(--color-text-muted);">No se encontraron registros de captura.</td></tr>`;
+    return;
+  }
+  
+  tbody.innerHTML = records.map(record => {
+    const dateStr = record.created_at ? new Date(record.created_at).toLocaleDateString('es-MX', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    }) : 'Sin fecha';
+    
+    const dataKeysCount = record.captured_data ? Object.keys(record.captured_data).length : 0;
+    
+    return `
+      <tr>
+        <td style="font-weight: 500;">${dateStr}</td>
+        <td style="font-weight: 600; color: var(--color-primary);">${escapeHTML(record.candidate_name || 'N/A')}</td>
+        <td><span class="company-badge" style="background: rgba(37, 99, 235, 0.08); color: var(--color-primary); border: 1px solid rgba(37, 99, 235, 0.15);">${escapeHTML(record.client_name || 'N/A')}</span></td>
+        <td><span class="commercial-badge" style="background: rgba(16, 185, 129, 0.08); color: var(--color-accent); border: 1px solid rgba(16, 185, 129, 0.15);">${escapeHTML(record.commercial_brand || 'N/A')}</span></td>
+        <td style="font-family: monospace; font-size: 0.85rem; color: var(--color-text-muted);">${dataKeysCount} respuestas capturadas</td>
+        <td style="text-align: center;">
+          <button class="btn" style="padding: 4px 10px; font-size: 0.75rem; background: rgba(37, 99, 235, 0.1); border-color: rgba(37, 99, 235, 0.2); color: var(--color-primary); cursor: pointer;" onclick="exportSingleCaptureToCSV(${record.id})">
+            <i data-lucide="download" style="width: 12px; height: 12px; display: inline; vertical-align: middle; margin-right: 4px;"></i> Exportar
+          </button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+  
+  lucide.createIcons();
+}
+
+// Búsqueda en la tabla estilo sheet
+document.getElementById('search-db-captures').addEventListener('input', (e) => {
+  const query = e.target.value.trim().toLowerCase();
+  
+  if (query === '') {
+    renderCapturesTable(dbCaptures);
+    return;
+  }
+  
+  const filtered = dbCaptures.filter(r => {
+    return (r.candidate_name && r.candidate_name.toLowerCase().includes(query)) ||
+           (r.client_name && r.client_name.toLowerCase().includes(query)) ||
+           (r.commercial_brand && r.commercial_brand.toLowerCase().includes(query));
+  });
+  
+  renderCapturesTable(filtered);
+});
+
+// Helper de escape simple para CSV
+function escapeCSVValue(val) {
+  if (val === null || val === undefined) return '';
+  let str = String(val);
+  if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+    str = '"' + str.replace(/"/g, '""') + '"';
+  }
+  return str;
+}
+
+// Exportar TODOS los registros a un archivo CSV plano tipo spreadsheet compatible con Excel y Google Sheets
+document.getElementById('btn-export-all-excel').addEventListener('click', () => {
+  if (dbCaptures.length === 0) {
+    alert("No hay registros disponibles para exportar.");
+    return;
+  }
+  
+  const uniqueKeysSet = new Set();
+  dbCaptures.forEach(record => {
+    if (record.captured_data) {
+      Object.keys(record.captured_data).forEach(key => {
+        uniqueKeysSet.add(key);
+      });
+    }
+  });
+  
+  const questionKeys = Array.from(uniqueKeysSet).sort();
+  
+  const headers = ['Fecha de Captura', 'Nombre del Candidato', 'Cliente (Empresa)', 'Marca Comercial', 'ID Registro'];
+  const formatHeader = (str) => str.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  questionKeys.forEach(key => {
+    headers.push(formatHeader(key));
+  });
+  
+  const csvRows = [headers.map(escapeCSVValue).join(',')];
+  
+  dbCaptures.forEach(record => {
+    const dateStr = record.created_at ? new Date(record.created_at).toISOString() : '';
+    const row = [
+      dateStr,
+      record.candidate_name || '',
+      record.client_name || '',
+      record.commercial_brand || '',
+      record.id
+    ];
+    
+    questionKeys.forEach(key => {
+      const val = record.captured_data ? record.captured_data[key] : '';
+      row.push(val || '');
+    });
+    
+    csvRows.push(row.map(escapeCSVValue).join(','));
+  });
+  
+  triggerCSVDownload(csvRows, `Base_Datos_Estudios_${new Date().toISOString().split('T')[0]}.csv`);
+});
+
+// Exportar un único estudio individual en formato plano a Excel/CSV
+window.exportSingleCaptureToCSV = function(id) {
+  const record = dbCaptures.find(r => r.id === id);
+  if (!record) return;
+  
+  const headers = ['Campo / Pregunta', 'Respuesta Capturada'];
+  const csvRows = [headers.map(escapeCSVValue).join(',')];
+  
+  csvRows.push([escapeCSVValue('Fecha de Captura'), escapeCSVValue(record.created_at)]);
+  csvRows.push([escapeCSVValue('Nombre del Candidato'), escapeCSVValue(record.candidate_name)]);
+  csvRows.push([escapeCSVValue('Cliente (Empresa)'), escapeCSVValue(record.client_name)]);
+  csvRows.push([escapeCSVValue('Marca Comercial'), escapeCSVValue(record.commercial_brand)]);
+  
+  csvRows.push([escapeCSVValue('---'), escapeCSVValue('---')]);
+  
+  if (record.captured_data) {
+    const formatHeader = (str) => str.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    Object.keys(record.captured_data).sort().forEach(key => {
+      csvRows.push([
+        escapeCSVValue(formatHeader(key)),
+        escapeCSVValue(record.captured_data[key])
+      ]);
+    });
+  }
+  
+  const safeCandidateName = (record.candidate_name || 'Estudio').replace(/[^a-zA-Z0-9]/g, '_');
+  triggerCSVDownload(csvRows, `Estudio_${safeCandidateName}.csv`);
+};
+
+// Utilidad para descargar el Blob del CSV
+function triggerCSVDownload(csvRows, filename) {
+  const csvContent = "\uFEFF" + csvRows.join("\n");
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.setAttribute("href", url);
+  link.setAttribute("download", filename);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+// Helper escapeHTML local
+function escapeHTML(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 // Init
 lucide.createIcons();
 loadTemplates();
