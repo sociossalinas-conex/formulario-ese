@@ -565,6 +565,15 @@ function buildDynamicForm(template) {
       else if (field.tipo === 'date') iconName = 'calendar';
       else if (field.tipo === 'number') iconName = 'numeric';
 
+      let defaultValAttr = '';
+      if (field.tipo === 'date' && field.defaultToday) {
+        const today = new Date();
+        // Adjust for local timezone
+        const offset = today.getTimezoneOffset() * 60000;
+        const localISOTime = (new Date(today - offset)).toISOString().split('T')[0];
+        defaultValAttr = `value="${localISOTime}"`;
+      }
+
       formGroup.innerHTML = `
         <div class="input-wrapper" style="position:relative;">
           <label style="display:flex; align-items:center; gap: 8px; font-size: 0.8rem; margin-bottom: 4px; font-weight: 500; color: var(--color-text-main);">
@@ -573,7 +582,7 @@ function buildDynamicForm(template) {
           </label>
           <div style="position:relative;">
             <i data-lucide="${iconName}" class="input-icon" style="top: 50%; transform: translateY(-50%);"></i>
-            <input type="${field.tipo}" id="field-${field.id}" class="form-input" placeholder="${escapeHTML(field.placeholder || (field.id.includes('año') ? 'ej. 3 años' : ''))}" ${field.requerido ? 'required' : ''} autocomplete="off" style="padding-top: 10px; padding-bottom: 10px;">
+            <input type="${field.tipo}" id="field-${field.id}" class="form-input" placeholder="${escapeHTML(field.placeholder || (field.id.includes('año') ? 'ej. 3 años' : ''))}" ${defaultValAttr} ${field.requerido ? 'required' : ''} autocomplete="off" style="padding-top: 10px; padding-bottom: 10px;">
           </div>
         </div>
       `;
