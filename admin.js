@@ -250,6 +250,19 @@ function createFieldAccordion(field) {
           <label class="control-label">Texto de Ayuda (Globito '?')</label>
           <input type="text" class="control-input field-ayuda" value="${field.ayuda || ''}" placeholder="Instrucción que aparecerá al pasar el mouse por encima">
         </div>
+        <div class="control-group">
+          <label class="control-label">Mostrar solo si este campo ID:</label>
+          <input type="text" class="control-input field-depends-on" value="${field.dependsOn || ''}" placeholder="Ej. demandas">
+        </div>
+        <div class="control-group">
+          <label class="control-label">Es igual al valor:</label>
+          <input type="text" class="control-input field-depends-on-value" value="${field.dependsOnValue || ''}" placeholder="Ej. Sí">
+        </div>
+        
+        <div class="control-group" style="grid-column: span 2;">
+          <label class="control-label">Autocompletar (copiar) desde (ID del campo):</label>
+          <input type="text" class="control-input field-link-from" value="${field.linkFrom || ''}" placeholder="Ej. nombre_padre">
+        </div>
 
         <div class="control-group options-row" style="display: ${field.tipo === 'select' ? 'flex' : 'none'};">
           <label class="control-label">Opciones del Menú Desplegable (Separadas por comas)</label>
@@ -349,6 +362,10 @@ document.getElementById('btn-save').addEventListener('click', async () => {
       const transformSelect = card.querySelector('.field-transform');
       const transform = transformSelect ? transformSelect.value : 'none';
       
+      const dependsOn = card.querySelector('.field-depends-on').value.trim();
+      const dependsOnValue = card.querySelector('.field-depends-on-value').value.trim();
+      const linkFrom = card.querySelector('.field-link-from').value.trim();
+      
       const updatedField = {
         id: id,
         label: label,
@@ -357,7 +374,10 @@ document.getElementById('btn-save').addEventListener('click', async () => {
         placeholder: placeholder,
         ayuda: ayuda,
         defaultToday: defaultToday,
-        transform: transform
+        transform: transform,
+        dependsOn: dependsOn,
+        dependsOnValue: dependsOnValue,
+        linkFrom: linkFrom
       };
       
       if (tipo === 'select' && opcionesStr.trim() !== '') {

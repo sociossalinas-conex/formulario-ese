@@ -1374,3 +1374,32 @@ body {
     transform: translateY(0);
   }
 }
+
+/* ==========================================================================
+   OPTIMIZACIÓN EXTREMA PARA MÓVILES (APROVECHAR 100% ESPACIO)
+   ========================================================================== */
+@media (max-width: 768px) {
+  .app-container {
+    max-width: 100%;
+    padding: 0 !important;
+    min-height: 100vh;
+  }
+  
+  .card {
+    border-radius: 0;
+    border: none;
+    padding: 24px 16px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .bg-glow, .bg-noise {
+    display: none;
+  }
+  
+  /* Reducir paddings internos en formularios */
+  .input-wrapper, .form-group {
+    margin-bottom: 16px;
+  }
+}

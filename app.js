@@ -466,6 +466,15 @@ function buildDynamicForm(template) {
     const formGroup = document.createElement('div');
     formGroup.className = 'form-group';
     
+    const isConditional = field.dependsOn && field.dependsOn.trim() !== '';
+    if (isConditional) {
+      formGroup.classList.add('conditional-field');
+      formGroup.dataset.dependsOn = field.dependsOn.trim();
+      formGroup.dataset.dependsOnValue = field.dependsOnValue ? field.dependsOnValue.trim() : '';
+      formGroup.style.display = 'none';
+    }
+    const linkFromAttr = field.linkFrom && field.linkFrom.trim() !== '' ? `data-link-from="${field.linkFrom.trim()}"` : '';
+    
     // Lógica especial para Demandas
     if (config.dynamicDemandas !== false && field.id === 'demandas') {
       formGroup.innerHTML = `
@@ -544,7 +553,7 @@ function buildDynamicForm(template) {
         </label>
         <div class="select-wrapper">
           <i data-lucide="list" class="select-icon"></i>
-          <select id="field-${field.id}" class="form-select" ${field.requerido ? 'required' : ''}>
+          <select id="field-${field.id}" class="form-select" ${linkFromAttr} ${field.requerido ? 'required' : ''}>
             <option value="" disabled selected>Seleccione...</option>
             ${dropdownOptions.map(o => `<option value="${escapeHTML(o)}">${escapeHTML(o)}</option>`).join('')}
           </select>
@@ -556,7 +565,7 @@ function buildDynamicForm(template) {
           ${escapeHTML(formatLabel(field.label))} ${field.requerido ? '*' : ''}
           ${tooltipHtml}
         </label>
-        <textarea id="field-${field.id}" class="form-textarea" placeholder="${escapeHTML(field.placeholder || '')}" data-transform="${field.transform || 'none'}" ${field.requerido ? 'required' : ''}></textarea>
+        <textarea id="field-${field.id}" class="form-textarea" placeholder="${escapeHTML(field.placeholder || '')}" data-transform="${field.transform || 'none'}" ${linkFromAttr} ${field.requerido ? 'required' : ''}></textarea>
       `;
     } else {
       let iconName = 'edit-2';
@@ -582,7 +591,7 @@ function buildDynamicForm(template) {
           </label>
           <div style="position:relative;">
             <i data-lucide="${iconName}" class="input-icon" style="top: 50%; transform: translateY(-50%);"></i>
-            <input type="${field.tipo}" id="field-${field.id}" class="form-input" placeholder="${escapeHTML(field.placeholder || (field.id.includes('año') ? 'ej. 3 años' : ''))}" ${defaultValAttr} data-transform="${field.transform || 'none'}" ${field.requerido ? 'required' : ''} autocomplete="off" style="padding-top: 10px; padding-bottom: 10px;">
+            <input type="${field.tipo}" id="field-${field.id}" class="form-input" placeholder="${escapeHTML(field.placeholder || (field.id.includes('año') ? 'ej. 3 años' : ''))}" ${defaultValAttr} data-transform="${field.transform || 'none'}" ${linkFromAttr} ${field.requerido ? 'required' : ''} autocomplete="off" style="padding-top: 10px; padding-bottom: 10px;">
           </div>
         </div>
       `;
@@ -1066,6 +1075,48 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
   }, true);
+
+  // Lógica de Autocompletar (Espejo) y Condiciones de Visibilidad
+  const handleDynamicFields = (e) => {
+    if (e.target.matches('.form-input, .form-textarea, .form-select')) {
+      const sourceId = e.target.id.replace('field-', '');
+      const newValue = e.target.value;
+      
+      // 1. Autocompletar (Espejo)
+      const targets = document.querySelectorAll(`[data-link-from="${sourceId}"]`);
+      targets.forEach(target => {
+        if (target !== e.target) {
+          target.value = newValue;
+        }
+      });
+      
+      // 2. Condiciones de Visibilidad
+      const dependentGroups = document.querySelectorAll(`.conditional-field[data-depends-on="${sourceId}"]`);
+      dependentGroups.forEach(group => {
+        const requiredValue = group.dataset.dependsOnValue;
+        if (newValue.toLowerCase() === requiredValue.toLowerCase()) {
+          group.style.display = 'block';
+          const innerInput = group.querySelector('.form-input, .form-select, .form-textarea');
+          if (innerInput && innerInput.hasAttribute('data-was-required')) {
+            innerInput.setAttribute('required', 'true');
+          }
+        } else {
+          group.style.display = 'none';
+          const innerInput = group.querySelector('.form-input, .form-select, .form-textarea');
+          if (innerInput) {
+            innerInput.value = '';
+            if (innerInput.hasAttribute('required')) {
+              innerInput.removeAttribute('required');
+              innerInput.setAttribute('data-was-required', 'true');
+            }
+          }
+        }
+      });
+    }
+  };
+
+  document.addEventListener('input', handleDynamicFields);
+  document.addEventListener('change', handleDynamicFields);
 
   // Inicializar Iconos Lucide al inicio
   lucide.createIcons();
