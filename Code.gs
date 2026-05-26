@@ -18,6 +18,34 @@ function doGet(e) {
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
+/**
+ * Recibe peticiones HTTP POST externas (API Webhook de la Web App en Supabase)
+ * para inyectar datos en documentos existentes de Google Drive.
+ */
+function doPost(e) {
+  try {
+    var postData = JSON.parse(e.postData.contents);
+    var action = postData.action;
+    
+    if (action === 'fillDoc') {
+      var clientName = postData.clientName;
+      var candidateName = postData.candidateName;
+      var answers = postData.answers;
+      
+      var res = DocsService.fillExistingDocInCandidateFolder(clientName, candidateName, answers);
+      
+      return ContentService.createTextOutput(JSON.stringify(res))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: "Acción no reconocida" }))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: err.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
 function include(filename) {
   return HtmlService.createHtmlOutputFromFile(filename).getContent();
 }

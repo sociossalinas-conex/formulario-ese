@@ -139,6 +139,88 @@ var DocsService = {
       return clientFolder.createFolder(candidateName);
     }
   },
+
+  /**
+   * Busca en Drive el cliente y el candidato, encuentra un Google Doc en la carpeta del candidato
+   * y vuelca los datos de captura sobre el mismo reemplazando marcadores.
+   */
+  fillExistingDocInCandidateFolder: function(clientName, candidateName, data) {
+    try {
+      var rootFolder = DriveApp.getFolderById(CONFIG.DRIVE_FOLDER_ID);
+      
+      // 1. Buscar carpeta del cliente (Búsqueda por nombre e ignore-case)
+      var clientFolders = rootFolder.searchFolders("title = '" + clientName.replace(/'/g, "\\'") + "' and trashed = false");
+      var clientFolder;
+      if (clientFolders.hasNext()) {
+        clientFolder = clientFolders.next();
+      } else {
+        var folders = rootFolder.getFolders();
+        while (folders.hasNext()) {
+          var f = folders.next();
+          if (f.getName().toLowerCase().trim() === clientName.toLowerCase().trim()) {
+            clientFolder = f;
+            break;
+          }
+        }
+      }
+      
+      if (!clientFolder) {
+        throw new Error("No se encontró la carpeta del cliente '" + clientName + "' en la carpeta raíz.");
+      }
+      
+      // 2. Buscar carpeta del candidato (Búsqueda por nombre e ignore-case)
+      var candidateFolders = clientFolder.searchFolders("title = '" + candidateName.replace(/'/g, "\\'") + "' and trashed = false");
+      var candidateFolder;
+      if (candidateFolders.hasNext()) {
+        candidateFolder = candidateFolders.next();
+      } else {
+        var folders = clientFolder.getFolders();
+        while (folders.hasNext()) {
+          var f = folders.next();
+          if (f.getName().toLowerCase().trim() === candidateName.toLowerCase().trim()) {
+            candidateFolder = f;
+            break;
+          }
+        }
+      }
+      
+      if (!candidateFolder) {
+        throw new Error("No se encontró la carpeta del candidato '" + candidateName + "' dentro de la carpeta del cliente '" + clientName + "'.");
+      }
+      
+      // 3. Buscar el documento de Google Docs en la carpeta del candidato
+      var docFiles = candidateFolder.getFilesByType(MimeType.GOOGLE_DOCS);
+      var docFile;
+      if (docFiles.hasNext()) {
+        docFile = docFiles.next();
+      } else {
+        var files = candidateFolder.getFiles();
+        while (files.hasNext()) {
+          var file = files.next();
+          if (file.getMimeType() === MimeType.GOOGLE_DOCS) {
+            docFile = file;
+            break;
+          }
+        }
+      }
+      
+      if (!docFile) {
+        throw new Error("No se encontró ningún documento editable de tipo Google Docs en la carpeta del candidato '" + candidateName + "'.");
+      }
+      
+      var doc = DocumentApp.openById(docFile.getId());
+      
+      // 4. Reemplazar marcadores {{...}} con los datos de la captura
+      this.replaceAllMarkers(doc, data);
+      doc.saveAndClose();
+      
+      return { success: true, docUrl: docFile.getUrl(), docName: docFile.getName() };
+      
+    } catch (e) {
+      console.error("Error al volcar datos en documento existente: " + e);
+      return { success: false, error: e.toString() };
+    }
+  },
   
   getClientName: function(clienteId) {
     var ss = SheetsService.getSpreadsheet();
