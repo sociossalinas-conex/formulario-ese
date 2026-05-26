@@ -1092,6 +1092,25 @@ async function submitCapturedForm() {
       }
     } else {
       alert("¡Estudio Socioeconómico guardado con éxito!");
+      
+      // Sincronizar en segundo plano con Google Apps Script si hay una URL configurada
+      const mappingConfig = state.resolvedConfig || {};
+      if (mappingConfig.appsScriptUrl) {
+        console.log("URL de Google Apps Script detectada. Enviando webhook de rellenado de documento...");
+        fetch(mappingConfig.appsScriptUrl, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            action: 'fillDoc',
+            clientName: state.matchedTemplate.name,
+            candidateName: candidateName,
+            answers: answers
+          })
+        }).catch(err => console.error("Error al disparar Google Apps Script:", err));
+      }
     }
     
     // Regresar al inicio
@@ -1113,6 +1132,7 @@ document.getElementById('btn-open-mapping-modal').addEventListener('click', () =
   document.getElementById('mapping-client-name').value = "";
   document.getElementById('mapping-client-name').removeAttribute('readonly');
   document.getElementById('mapping-commercial-brand').value = "Conexion Ejecutiva";
+  document.getElementById('config-apps-script-url').value = "";
   document.getElementById('modal-title-action').innerText = "Agregar Mapeo de Marca";
   mappingModal.classList.add('active');
 });
@@ -1136,7 +1156,8 @@ document.getElementById('mapping-form').addEventListener('submit', async (e) => 
   const configObj = {
     autoDate: document.getElementById('config-auto-date').checked,
     hideFields: document.getElementById('config-hide-fields').checked,
-    dynamicDemandas: document.getElementById('config-dynamic-demandas').checked
+    dynamicDemandas: document.getElementById('config-dynamic-demandas').checked,
+    appsScriptUrl: document.getElementById('config-apps-script-url').value.trim()
   };
 
   const payload = {
@@ -1198,6 +1219,7 @@ function openEditMappingModal(id, clientName, commercialBrand, configStr) {
     document.getElementById('config-auto-date').checked = config.autoDate !== false;
     document.getElementById('config-hide-fields').checked = config.hideFields !== false;
     document.getElementById('config-dynamic-demandas').checked = config.dynamicDemandas !== false;
+    document.getElementById('config-apps-script-url').value = config.appsScriptUrl || '';
   } catch(e) {}
 
   document.getElementById('modal-title-action').innerText = "Editar Mapeo de Marca";
