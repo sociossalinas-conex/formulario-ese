@@ -458,6 +458,32 @@
           </div>
         </div>
         
+        <!-- Gestión de Secciones (Asistente) -->
+        <div class="sections-manager-card" style="margin-bottom: 24px; border: 1px solid var(--border-card); border-radius: var(--border-radius-lg); background: var(--bg-body); padding: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); transition: all 0.3s ease;">
+          <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="toggleSectionsManager()">
+            <h3 style="margin: 0; font-size: 1.1rem; display: flex; align-items: center; gap: 8px; color: var(--color-text-dark); font-weight: 600;">
+              <i data-lucide="sliders" style="color: var(--color-primary); width: 20px; height: 20px;"></i>
+              <span>⚙️ Configurar Títulos y Orden de Secciones (Asistente)</span>
+            </h3>
+            <span id="sections-toggle-icon" style="font-weight: bold; font-size: 1.2rem; color: var(--color-text-muted); transition: transform 0.2s;">▼</span>
+          </div>
+          
+          <div id="sections-manager-content" style="display: none; margin-top: 16px; border-top: 1px solid var(--border-card); padding-top: 16px;">
+            <p style="font-size: 0.85rem; color: var(--color-text-muted); margin-top: 0; margin-bottom: 16px; line-height: 1.4;">
+              Edita el título, cambia el orden, agrega o elimina las secciones del asistente. Los cambios se reflejarán instantáneamente en los acordeones de abajo.
+            </p>
+            <div id="sections-list-container" style="display: flex; flex-direction: column; gap: 10px;">
+              <!-- Generado dinámicamente -->
+            </div>
+            <div style="margin-top: 16px; display: flex; justify-content: flex-end;">
+              <button class="btn btn-secondary" onclick="addNewSection()" style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; padding: 6px 12px; background: rgba(37,99,235,0.05); border-color: rgba(37,99,235,0.2); color: var(--color-primary);">
+                <i data-lucide="plus-circle" style="width: 16px; height: 16px;"></i>
+                <span>Crear Nueva Sección</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
         <div class="input-wrapper" style="margin-bottom: 24px;">
           <i data-lucide="search" class="input-icon"></i>
           <input type="text" id="search-fields" class="form-input" placeholder="Buscar pregunta..." autocomplete="off">
