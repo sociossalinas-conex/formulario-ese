@@ -808,8 +808,14 @@ body {
   display: flex;
   justify-content: space-between;
   margin-top: 32px;
-  padding-top: 24px;
+  padding-top: 20px;
   border-top: 1px solid var(--border-card);
+}
+
+.wizard-footer .btn {
+  padding: 8px 20px;
+  font-size: 0.9rem;
+  font-weight: 500;
 }
 
 /* Tooltips Interactivos por Clic */

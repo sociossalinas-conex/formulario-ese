@@ -366,23 +366,23 @@ function classifyFieldSection(fieldId) {
   const id = fieldId.toLowerCase();
   
   // 1. Estudio Socioeconómico (Módulo 1)
-  if (id.match(/fecha.*solicitud/) || id.match(/fecha.*visita/) || id.match(/elaborado_por/) || id.match(/^puesto$/) || id.match(/demandas/) || id.match(/resultado/) || id.match(/solicitado_por/)) return 'sec-estudio';
+  if (id.match(/fecha.*solicitud/) || id.match(/fecha.*visita/) || id.match(/elaborado_por/) || id === 'puesto' || id === 'puesto_solicitado' || id.match(/demandas/) || id.match(/resultado/) || id.match(/solicitado_por/)) return 'sec-estudio';
   
   // 7. Historial Laboral y Omitidos (Módulos 7 y 8)
   // Check this before personal data so "Puesto" inside laboral doesn't get confused
-  if (id.includes('empresa') || id.includes('giro') || id.match(/puesto.*inicial/) || id.match(/puesto.*final/) || id.includes('contrato') || id.match(/fecha.*ingreso/) || id.match(/fecha.*salida/) || id.includes('sueldo') || id.match(/motivo.*salida/) || id.match(/jefe/) || id.includes('puntualidad') || id.includes('asistencia') || id.match(/relacion.*compañero/) || id.match(/relacion.*superior/) || id.includes('responsabilidad') || id.includes('honestidad') || id.includes('equipo') || id.includes('disciplina') || id.includes('confiabilidad') || id.includes('iniciativa') || id.includes('calidad.*trabajo') || id.includes('observaciones_laboral') || id.includes('falta') || id.includes('incapacidad') || id.includes('recomendable') || id.includes('omitido') || id.includes('proporciono_informacion')) return 'sec-laboral';
+  if (id.includes('empresa') || id.includes('giro') || id.includes('contrato') || id.match(/fecha.*ingreso/) || id.match(/fecha.*salida/) || id.includes('sueldo') || id.match(/motivo.*salida/) || id.match(/jefe/) || id.includes('puntualidad') || id.includes('asistencia') || id.includes('companero') || id.match(/relacion.*compañero/) || id.match(/relacion.*superior/) || id.includes('responsabilidad') || id.includes('honestidad') || id.includes('equipo') || id.includes('disciplina') || id.includes('confiabilidad') || id.includes('iniciativa') || id.match(/calidad.*trabajo/) || id.includes('observaciones_laboral') || id.includes('falta') || id.includes('incapacidad') || id.includes('recomendable') || id.includes('omitido') || id.includes('proporciono_informacion') || id.includes('puesto') || id.includes('persona_informacion')) return 'sec-laboral';
   
   // 8. Documentos y Evidencias (Módulo 4.2 y 5.5)
-  if (id.match(/documento.*acta/) || id.match(/^acta.*nacimiento$/) || id.includes('rfc') || id.includes('curp') || id.includes('imss') || id.includes('nss') || id.includes('ine') || id.includes('folio') || id.includes('tipo_documento') || id.includes('emergencia') || id.includes('foto') || id.includes('mapa') || id.includes('ubicacion') || id.includes('comprobante_domicilio') || id.includes('recomendacion') || id.includes('nomina') || id.includes('infonavit') || id.includes('cartilla') || id.includes('pasaporte')) return 'sec-evidencias';
+  if (id.includes('doc_') || id.match(/documento.*acta/) || id.match(/^acta.*nacimiento$/) || id.includes('rfc') || id.includes('curp') || id.includes('imss') || id.includes('nss') || id.includes('ine') || id.includes('folio') || id.includes('tipo_documento') || id.includes('emergencia') || id.includes('foto') || id.includes('mapa') || id.includes('ubicacion') || id.includes('comprobante_domicilio') || id.includes('recomendacion') || id.includes('nomina') || id.includes('infonavit') || id.includes('cartilla') || id.includes('pasaporte')) return 'sec-evidencias';
 
   // 6. Referencias Personales
   if (id.match(/tiempo.*conocerlo/) || id.match(/como.*describiria/)) return 'sec-referencias';
 
   // 3. Escolaridad e Inmuebles (Módulo 4.1 y Vivienda)
-  if (id.includes('grado') || id.includes('escolar') || id.includes('escuela') || id.includes('documento_obtenido') || id.includes('inmueble') || id.includes('automovil') || id.includes('moto') || id.includes('casa') || id.includes('terreno') || id.match(/valor.*aproximado/) || id.includes('dueño') || id.includes('comprobatorio') || id.includes('habit') || id.includes('limpieza') || id.includes('construccion') || id.includes('baño') || id.includes('cocina') || id.includes('sala') || id.includes('comedor') || id.includes('cuarto') || id.includes('recamara') || id.includes('nivel') || id.includes('estacionamiento') || id.includes('urbana') || id.includes('mueble') || id.match(/años.*escuela/)) return 'sec-escolaridad';
+  if (id.includes('grado') || id.includes('escolar') || id.includes('escuela') || id.includes('documento_obtenido') || id.includes('inmueble') || id.includes('automovil') || id.includes('moto') || id.includes('tipo_casa') || id === 'casa' || id.includes('terreno') || id.match(/valor.*aproximado/) || id.includes('dueño') || id.includes('comprobatorio') || id.includes('habit') || id.includes('limpieza') || id.includes('construccion') || id.includes('baño') || id.includes('bano') || id.includes('cocina') || id.includes('sala') || id.includes('comedor') || id.includes('cuarto') || id.includes('recamara') || id.includes('nivel') || id.includes('estacionamiento') || id.includes('urbana') || id.includes('mueble') || id.match(/años.*escuela/)) return 'sec-escolaridad';
 
   // 4. Familiar y Economía (Módulos 3 y 5)
-  if (id.includes('parentesco') || id.includes('ocupacion') || id.match(/telefono.*empleo/) || id.includes('aportador') || id.includes('ingreso') || id.includes('egreso') || id.includes('predial') || id.includes('hipoteca') || id.includes('renta') || id.includes('servicios') || id.includes('luz') || id.includes('agua') || id.includes('gas') || id.includes('cable') || id.includes('internet') || id.includes('pavimentacion') || id.includes('vigilancia') || id.includes('alumbrado') || id.includes('alimentacion') || id.includes('transporte') || id.includes('educacion') || id.includes('colegiatura') || id.includes('vestido') || id.includes('diversion') || id.includes('gastos_medicos') || id.includes('entretenimiento') || id.match(/plan.*celular/) || id.includes('mascotas_gasto') || id.includes('mantenimiento') || id.includes('deuda') || id.includes('observaciones_familia')) return 'sec-economia';
+  if (id.includes('parentesco') || id.includes('ocupacion') || id.match(/telefono.*empleo/) || id.includes('aportador') || id.includes('ingreso') || id.includes('egreso') || id.includes('predial') || id.includes('hipoteca') || id.includes('renta') || id.includes('servicios') || id.includes('luz') || id.includes('agua') || id.includes('gas') || id.includes('cable') || id.includes('internet') || id.includes('pavimentacion') || id.includes('vigilancia') || id.includes('alumbrado') || id.includes('alimentacion') || id.includes('transporte') || id.includes('educacion') || id.includes('colegiatura') || id.includes('vestido') || id.includes('diversion') || id.includes('gastos_medicos') || id.includes('entretenimiento') || id.match(/plan.*celular/) || id.includes('mascotas_gasto') || id.includes('mantenimiento') || id.includes('deuda') || id.includes('observaciones_familia') || id.includes('ref_eco_')) return 'sec-economia';
 
   // 5. Entorno y Salud (Módulo 6)
   if (id.includes('originario') || id.includes('densidad') || id.includes('migratorio') || id.includes('farmaco') || id.includes('vandalismo') || id.includes('club') || id.includes('asociacion') || id.includes('deportivo') || id.includes('religion') || id.includes('pasatiempo') || id.match(/mascotas.*cantidad/) || id.includes('tatuaje') || id.includes('alergia') || id.includes('fuma') || id.includes('toma') || id.includes('peso') || id.includes('altura') || id.includes('deporte') || id.includes('enfermedad') || id.includes('patologico') || id.includes('dental') || id.includes('aspecto') || id.match(/familiar.*empresa/) || id.match(/laborado.*empresa/) || id.includes('enteró_vacante') || id.includes('autodescripcion') || id.includes('meta') || id.match(/mas.*importante/)) return 'sec-entorno';
@@ -459,7 +459,8 @@ function buildDynamicForm(template) {
       }
     }
 
-    const secId = classifyFieldSection(field.id);
+    const secId = field.section || classifyFieldSection(field.id);
+    if (secId === 'hidden') return;
     const targetContainer = sectionContainers[secId];
     
     const formGroup = document.createElement('div');
@@ -510,17 +511,24 @@ function buildDynamicForm(template) {
     let dropdownOptions = null;
     let isAge = false;
     
-    if (field.id.includes('lugar_nacimiento') || field.id.includes('ciudad')) dropdownOptions = MEXICAN_STATES;
+    if (field.tipo === 'select' && field.opciones && field.opciones.length > 0) dropdownOptions = field.opciones;
+    else if (field.id.includes('lugar_nacimiento') || field.id.includes('ciudad')) dropdownOptions = MEXICAN_STATES;
     else if (field.id.includes('tipo_doc')) dropdownOptions = DROPDOWNS_COTEJADOS;
     else if (field.id.includes('documento_obtenido')) dropdownOptions = DROPDOWNS_ESCOLAR;
     else if (field.id.includes('documento_comprobatorio')) dropdownOptions = DROPDOWNS_INMUEBLES;
     
     if (field.id === 'edad') isAge = true;
 
-    // Puesto tooltip
+    // Tooltips especiales y dinámicos
     let tooltipHtml = '';
-    // Solo agregar el tooltip especial de Puesto si es el campo general, no los laborales
-    if (field.id.toLowerCase() === 'puesto') {
+    if (field.ayuda && field.ayuda.trim() !== '') {
+      tooltipHtml = `
+        <div class="tooltip-container" onclick="this.classList.toggle('active')">
+          <i data-lucide="help-circle" style="width:16px;height:16px; color:var(--color-primary);"></i>
+          <div class="tooltip-content">${escapeHTML(field.ayuda)}</div>
+        </div>
+      `;
+    } else if (field.id.includes('puesto') && secId === 'sec-estudio') {
       tooltipHtml = `
         <div class="tooltip-container" onclick="this.classList.toggle('active')">
           <i data-lucide="help-circle" style="width:16px;height:16px; color:var(--color-primary);"></i>
@@ -548,7 +556,7 @@ function buildDynamicForm(template) {
           ${escapeHTML(formatLabel(field.label))} ${field.requerido ? '*' : ''}
           ${tooltipHtml}
         </label>
-        <textarea id="field-${field.id}" class="form-textarea" placeholder="${escapeHTML(formatLabel(field.placeholder))}" ${field.requerido ? 'required' : ''}></textarea>
+        <textarea id="field-${field.id}" class="form-textarea" placeholder="${escapeHTML(field.placeholder || '')}" ${field.requerido ? 'required' : ''}></textarea>
       `;
     } else {
       let iconName = 'edit-2';
@@ -565,7 +573,7 @@ function buildDynamicForm(template) {
           </label>
           <div style="position:relative;">
             <i data-lucide="${iconName}" class="input-icon" style="top: 50%; transform: translateY(-50%);"></i>
-            <input type="${field.tipo}" id="field-${field.id}" class="form-input" placeholder="${field.id.includes('año') ? 'ej. 3 años' : ''}" ${field.requerido ? 'required' : ''} autocomplete="off" style="padding-top: 10px; padding-bottom: 10px;">
+            <input type="${field.tipo}" id="field-${field.id}" class="form-input" placeholder="${escapeHTML(field.placeholder || (field.id.includes('año') ? 'ej. 3 años' : ''))}" ${field.requerido ? 'required' : ''} autocomplete="off" style="padding-top: 10px; padding-bottom: 10px;">
           </div>
         </div>
       `;
