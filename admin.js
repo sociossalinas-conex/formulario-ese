@@ -241,6 +241,11 @@ function createFieldAccordion(field) {
           <input type="checkbox" class="field-default-today" id="chk-today-${field.id}" ${field.defaultToday ? 'checked' : ''}>
           <label for="chk-today-${field.id}" style="font-size: 0.9rem; font-weight: 500;">Fecha de hoy por defecto</label>
         </div>
+        
+        <div class="control-group" style="display: flex; flex-direction: row; align-items: center; gap: 8px; margin-top: 8px;">
+          <input type="checkbox" class="field-requerido" id="chk-req-${field.id}" ${field.requerido ? 'checked' : ''}>
+          <label for="chk-req-${field.id}" style="font-size: 0.9rem; font-weight: 500; color: var(--color-text-main);">Campo obligatorio (Forzoso a llenar)</label>
+        </div>
 
         <div class="control-group">
           <label class="control-label">Placeholder (Texto fondo)</label>
@@ -358,6 +363,9 @@ document.getElementById('btn-save').addEventListener('click', async () => {
       
       const chkToday = card.querySelector('.field-default-today');
       const defaultToday = chkToday ? chkToday.checked : false;
+
+      const chkReq = card.querySelector('.field-requerido');
+      const requerido = chkReq ? chkReq.checked : false;
       
       const transformSelect = card.querySelector('.field-transform');
       const transform = transformSelect ? transformSelect.value : 'none';
@@ -374,6 +382,7 @@ document.getElementById('btn-save').addEventListener('click', async () => {
         placeholder: placeholder,
         ayuda: ayuda,
         defaultToday: defaultToday,
+        requerido: requerido,
         transform: transform,
         dependsOn: dependsOn,
         dependsOnValue: dependsOnValue,
