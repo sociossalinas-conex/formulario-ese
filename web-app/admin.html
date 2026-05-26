@@ -334,6 +334,59 @@
       animation: spin 1s linear infinite;
     }
     @keyframes spin { 100% { transform: rotate(360deg); } }
+    /* Spreadsheet Sheet Table Styles */
+    .db-sheet-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--bg-card);
+      color: var(--color-text-main);
+      font-size: 0.88rem;
+    }
+    .db-sheet-table th {
+      background: rgba(0, 0, 0, 0.03);
+      color: var(--color-text-muted);
+      font-weight: 600;
+      border: 1px solid var(--border-card);
+      padding: 12px 16px;
+      text-align: left;
+    }
+    .db-sheet-table td {
+      border: 1px solid var(--border-card);
+      padding: 10px 16px;
+      white-space: nowrap;
+      max-width: 300px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .db-sheet-table tbody tr {
+      transition: background 0.15s ease;
+    }
+    .db-sheet-table tbody tr:hover {
+      background: rgba(37, 99, 235, 0.03);
+    }
+    
+    .btn-action-tab {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--color-text-muted);
+      cursor: pointer;
+      font-weight: 600;
+      padding: 8px 16px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+    }
+    .btn-action-tab:hover {
+      background: rgba(0,0,0,0.05);
+      color: var(--color-text-main);
+    }
+    .btn-action-tab.active {
+      background: var(--color-primary-glow);
+      color: var(--color-primary);
+      border-color: var(--color-primary);
+    }
   </style>
 </head>
 <body>
@@ -342,16 +395,30 @@
     <header class="admin-header">
       <div class="admin-title">
         <i data-lucide="settings-2"></i>
-        Editor Visual de Formatos
+        <span>Panel de Control - Administración</span>
       </div>
-      <div>
-        <button class="btn btn-secondary" onclick="window.close()">
-          <i data-lucide="x"></i> Cerrar
+      <!-- Actions Bar (Derecha) -->
+      <div class="admin-actions-bar" style="display: flex; gap: 8px; align-items: center;">
+        <button class="btn-action-tab active" id="btn-show-editor">
+          <i data-lucide="sliders"></i>
+          <span>Editor de Formatos</span>
+        </button>
+        <button class="btn-action-tab" id="btn-show-database">
+          <i data-lucide="database"></i>
+          <span>Ver Base de Datos (Sheets)</span>
+        </button>
+        <button class="btn-action-tab" id="btn-show-events" style="opacity: 0.6; cursor: not-allowed;" title="Próximamente">
+          <i data-lucide="zap"></i>
+          <span>Eventos</span>
+        </button>
+        <button class="btn btn-secondary" onclick="window.close()" style="display: flex; align-items: center; gap: 6px; padding: 6px 12px; font-size: 0.85rem; background: rgba(239,68,68,0.08); color: #ef4444; border-color: rgba(239,68,68,0.15);">
+          <i data-lucide="x" style="width: 14px; height: 14px;"></i>
+          <span>Cerrar</span>
         </button>
       </div>
     </header>
 
-    <div class="admin-layout">
+    <div class="admin-layout" id="admin-editor-layout">
       
       <!-- Sidebar de Plantillas -->
       <aside class="sidebar">
@@ -409,6 +476,53 @@
       </main>
 
     </div>
+
+    <!-- Vista de Base de Datos Tipo Sheet (Oculta por defecto) -->
+    <main class="editor-main" id="database-sheet-view" style="display: none; flex-direction: column; width: 100%; box-sizing: border-box;">
+      <div class="editor-header" style="background: rgba(16, 185, 129, 0.05); border-color: rgba(16, 185, 129, 0.1); margin-bottom: 20px;">
+        <div>
+          <h2 style="margin: 0 0 4px 0; color: #10b981; display: flex; align-items: center; gap: 8px;">
+            <i data-lucide="database"></i>
+            <span>Base de Datos de Capturas</span>
+          </h2>
+          <p id="db-studies-count" style="margin: 0; font-size: 0.9rem; color: var(--color-text-muted);">Cargando registros...</p>
+        </div>
+        <div style="display: flex; gap: 12px;">
+          <button class="btn btn-primary" id="btn-export-all-excel" style="background: #10b981; border-color: #10b981; display: flex; align-items: center; gap: 8px; font-weight: bold; cursor: pointer;">
+            <i data-lucide="download"></i>
+            <span>Descargar Excel (Spreadsheet)</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="input-wrapper" style="margin-bottom: 20px;">
+        <i data-lucide="search" class="input-icon"></i>
+        <input type="text" id="search-db-captures" class="form-input" placeholder="Buscar por candidato, cliente, marca comercial..." autocomplete="off">
+      </div>
+
+      <!-- Tabla estilo hoja de cálculo / excel -->
+      <div style="width: 100%; overflow-x: auto; border: 1px solid var(--border-card); border-radius: 8px; background: var(--bg-card);">
+        <table class="db-sheet-table">
+          <thead>
+            <tr style="background: rgba(0, 0, 0, 0.03); border-bottom: 2px solid var(--border-card);">
+              <th>Fecha</th>
+              <th>Candidato</th>
+              <th>Cliente (Empresa)</th>
+              <th>Marca Comercial</th>
+              <th>Campos Capturados</th>
+              <th style="text-align: center;">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="db-sheet-tbody">
+            <tr>
+              <td colspan="6" style="padding: 24px; text-align: center; color: var(--color-text-muted);">
+                <i data-lucide="loader-2" class="loading-spinner"></i> Cargando base de datos de capturas...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </main>
   </div>
 
   <div id="toast" class="toast-message">

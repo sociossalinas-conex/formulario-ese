@@ -775,6 +775,79 @@ function buildDynamicForm(template) {
       dobField.addEventListener('change', handleAgeCalc);
     });
   }
+
+  // Lógica de género y estado civil dinámico
+  const bindGenderAndMaritalStatus = () => {
+    const genderSelect = document.querySelector('select[id*="genero"], select[id*="género"]');
+    const maritalSelect = document.querySelector('select[id*="estado_civil"]');
+    
+    if (genderSelect && maritalSelect) {
+      console.log("Detectados campos de Género y Estado Civil. Vinculando comportamiento dinámico...");
+      
+      // Asegurar que género tenga Masculino y Femenino
+      if (genderSelect.options.length <= 1) {
+        genderSelect.innerHTML = `
+          <option value="" disabled selected>Seleccione...</option>
+          <option value="Masculino">Masculino</option>
+          <option value="Femenino">Femenino</option>
+        `;
+      }
+      
+      const updateMaritalOptions = () => {
+        const gender = genderSelect.value;
+        const previousVal = maritalSelect.value;
+        
+        if (!gender) {
+          maritalSelect.innerHTML = `<option value="" disabled selected>Seleccione género primero...</option>`;
+          maritalSelect.disabled = true;
+          return;
+        }
+        
+        maritalSelect.disabled = false;
+        
+        let options = [];
+        if (gender === 'Masculino') {
+          options = ['Soltero', 'Casado', 'Divorciado', 'Viudo', 'Unión Libre'];
+        } else if (gender === 'Femenino') {
+          options = ['Soltera', 'Casada', 'Divorciada', 'Viuda', 'Unión Libre'];
+        }
+        
+        maritalSelect.innerHTML = `
+          <option value="" disabled selected>Seleccione...</option>
+          ${options.map(o => `<option value="${escapeHTML(o)}">${escapeHTML(o)}</option>`).join('')}
+        `;
+        
+        // Mapear valor anterior si existía y coincide en género
+        if (previousVal) {
+          let matchedOption = '';
+          if (gender === 'Masculino') {
+            if (previousVal.startsWith('Solter')) matchedOption = 'Soltero';
+            else if (previousVal.startsWith('Casad')) matchedOption = 'Casado';
+            else if (previousVal.startsWith('Divorciad')) matchedOption = 'Divorciado';
+            else if (previousVal.startsWith('Viud')) matchedOption = 'Viudo';
+            else if (previousVal === 'Unión Libre') matchedOption = 'Unión Libre';
+          } else if (gender === 'Femenino') {
+            if (previousVal.startsWith('Solter')) matchedOption = 'Soltera';
+            else if (previousVal.startsWith('Casad')) matchedOption = 'Casada';
+            else if (previousVal.startsWith('Divorciad')) matchedOption = 'Divorciada';
+            else if (previousVal.startsWith('Viud')) matchedOption = 'Viuda';
+            else if (previousVal === 'Unión Libre') matchedOption = 'Unión Libre';
+          }
+          
+          if (matchedOption) {
+            maritalSelect.value = matchedOption;
+            maritalSelect.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+        }
+      };
+      
+      genderSelect.addEventListener('change', updateMaritalOptions);
+      genderSelect.addEventListener('input', updateMaritalOptions);
+      updateMaritalOptions();
+    }
+  };
+
+  bindGenderAndMaritalStatus();
 }
 
 function goToWizardStep(stepIndex) {
