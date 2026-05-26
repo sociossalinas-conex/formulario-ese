@@ -412,8 +412,8 @@ const DROPDOWNS_COTEJADOS = ["Original", "Copia", "Impresión", "Digital"];
 const DROPDOWNS_ESCOLAR = ["Historial académico", "Cardex", "Certificado", "Boleta", "Credencial escolar"];
 const DROPDOWNS_INMUEBLES = ["Factura", "Carta Poder", "Escrituras", "Ticket"];
 
-// Secciones del Wizard (8 Pasos Reclutamiento Operaciones)
-const WIZARD_SECTIONS = [
+// Secciones del Wizard (Pasos Dinámicos)
+let activeWizardSections = [
   { id: 'sec-estudio', label: '1. Estudio Socioeconómico' },
   { id: 'sec-personales', label: '2. Datos Personales' },
   { id: 'sec-escolaridad', label: '3. Escolaridad e Inmuebles' },
@@ -485,9 +485,29 @@ function buildDynamicForm(template) {
     return;
   }
 
-  // Remove duplicate 'Nombre' fields
+  // Cargar configuración de secciones dinámica si existe
+  const defaultSections = [
+    { id: 'sec-estudio', label: '1. Estudio Socioeconómico' },
+    { id: 'sec-personales', label: '2. Datos Personales' },
+    { id: 'sec-escolaridad', label: '3. Escolaridad e Inmuebles' },
+    { id: 'sec-economia', label: '4. Familiar y Economía' },
+    { id: 'sec-entorno', label: '5. Entorno y Salud' },
+    { id: 'sec-referencias', label: '6. Referencias' },
+    { id: 'sec-laboral', label: '7. Historial Laboral' },
+    { id: 'sec-evidencias', label: '8. Documentos y Evidencias' }
+  ];
+  
+  const sectionsConfigField = schema.find(f => f.id === '__sections_config__');
+  if (sectionsConfigField && sectionsConfigField.sections) {
+    activeWizardSections = JSON.parse(JSON.stringify(sectionsConfigField.sections));
+  } else {
+    activeWizardSections = JSON.parse(JSON.stringify(defaultSections));
+  }
+
+  // Filtrar el campo especial de secciones y duplicados de Nombre
   schema = schema.filter(f => {
-    if(f.id.toLowerCase() === 'nombre' || f.id.toLowerCase() === 'nombre_candidato') return false;
+    if (f.id === '__sections_config__') return false;
+    if (f.id.toLowerCase() === 'nombre' || f.id.toLowerCase() === 'nombre_candidato') return false;
     return true;
   });
 
@@ -498,7 +518,7 @@ function buildDynamicForm(template) {
   const stepper = document.createElement('div');
   stepper.className = 'wizard-stepper';
   
-  WIZARD_SECTIONS.forEach((sec, idx) => {
+  activeWizardSections.forEach((sec, idx) => {
     const tab = document.createElement('button');
     tab.className = `wizard-step-tab ${idx === 0 ? 'active' : ''}`;
     tab.innerText = sec.label;
@@ -510,7 +530,7 @@ function buildDynamicForm(template) {
 
   // 2. Create Wizard Sections
   const sectionContainers = {};
-  WIZARD_SECTIONS.forEach((sec, idx) => {
+  activeWizardSections.forEach((sec, idx) => {
     const container = document.createElement('div');
     container.className = `wizard-section ${idx === 0 ? 'active' : ''}`;
     container.id = `wizard-section-${idx}`;
@@ -699,7 +719,7 @@ function buildDynamicForm(template) {
   });
 
   // 4. Agregar Botones de Navegación del Wizard
-  WIZARD_SECTIONS.forEach((sec, idx) => {
+  activeWizardSections.forEach((sec, idx) => {
     const container = sectionContainers[sec.id];
     
     // Si la sección está vacía, agregar mensaje
@@ -721,7 +741,7 @@ function buildDynamicForm(template) {
     nextBtn.type = 'button';
     nextBtn.className = 'btn btn-primary';
     
-    if (idx === WIZARD_SECTIONS.length - 1) {
+    if (idx === activeWizardSections.length - 1) {
       nextBtn.innerText = 'Guardar Captura Completa';
       nextBtn.onclick = submitCapturedForm;
     } else {
@@ -851,7 +871,7 @@ function buildDynamicForm(template) {
 }
 
 function goToWizardStep(stepIndex) {
-  if (stepIndex < 0 || stepIndex >= WIZARD_SECTIONS.length) return;
+  if (stepIndex < 0 || stepIndex >= activeWizardSections.length) return;
   
   // Validar campos obligatorios al intentar avanzar
   if (stepIndex > currentWizardStep) {
@@ -883,7 +903,13 @@ function goToWizardStep(stepIndex) {
   document.querySelectorAll('.wizard-step-tab').forEach(el => el.classList.remove('active'));
   
   document.getElementById(`wizard-section-${stepIndex}`).classList.add('active');
-  document.querySelectorAll('.wizard-step-tab')[stepIndex].classList.add('active');
+  
+  const activeTab = document.querySelectorAll('.wizard-step-tab')[stepIndex];
+  if (activeTab) {
+    activeTab.classList.add('active');
+    // Recorrer la pestaña de la sección para visualizarla centrada en pantallas pequeñas
+    activeTab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  }
   
   currentWizardStep = stepIndex;
   window.scrollTo(0, 0); // Volver arriba al cambiar de pestaña
@@ -914,7 +940,7 @@ function setupProgressTracking(schema) {
     progressBar.style.width = `${percent}%`;
 
     // Actualizar estado 'completed' de las pestañas del Wizard
-    WIZARD_SECTIONS.forEach((sec, idx) => {
+    activeWizardSections.forEach((sec, idx) => {
       const container = document.getElementById(`wizard-section-${idx}`);
       const tab = document.querySelectorAll('.wizard-step-tab')[idx];
       if (container && tab) {

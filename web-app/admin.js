@@ -27,17 +27,13 @@ function getSuggestedSection(fieldId) {
   return 'sec-personales';
 }
 
-const SECTION_OPTIONS = [
-  { val: 'sec-estudio', label: '1. Estudio Socioeconómico' },
-  { val: 'sec-personales', label: '2. Datos Personales' },
-  { val: 'sec-escolaridad', label: '3. Escolaridad e Inmuebles' },
-  { val: 'sec-economia', label: '4. Familiar y Economía' },
-  { val: 'sec-entorno', label: '5. Entorno y Salud' },
-  { val: 'sec-referencias', label: '6. Referencias Personales' },
-  { val: 'sec-laboral', label: '7. Historial Laboral' },
-  { val: 'sec-evidencias', label: '8. Documentos y Evidencias' },
-  { val: 'hidden', label: '❌ Ocultos / No Mostrar' }
-];
+let customSections = [];
+let SECTION_OPTIONS = [];
+
+function updateSectionOptions() {
+  SECTION_OPTIONS = customSections.map(sec => ({ val: sec.id, label: sec.label }));
+  SECTION_OPTIONS.push({ val: 'hidden', label: '❌ Ocultos / No Mostrar' });
+}
 
 async function loadTemplates() {
   const { data, error } = await supabaseClient.from('socioeconomic_templates').select('*').order('name');
@@ -81,6 +77,35 @@ function selectTemplate(id) {
   document.getElementById('editor-main').style.display = 'block';
   
   document.getElementById('current-template-name').innerText = currentTemplate.name;
+  
+  // Colapsar el panel de secciones por defecto al cambiar de plantilla
+  const sectionsContent = document.getElementById('sections-manager-content');
+  if (sectionsContent) sectionsContent.style.display = 'none';
+  const toggleIcon = document.getElementById('sections-toggle-icon');
+  if (toggleIcon) toggleIcon.innerText = '▼';
+
+  // Buscar configuración de secciones
+  const defaultSections = [
+    { id: 'sec-estudio', label: '1. Estudio Socioeconómico' },
+    { id: 'sec-personales', label: '2. Datos Personales' },
+    { id: 'sec-escolaridad', label: '3. Escolaridad e Inmuebles' },
+    { id: 'sec-economia', label: '4. Familiar y Economía' },
+    { id: 'sec-entorno', label: '5. Entorno y Salud' },
+    { id: 'sec-referencias', label: '6. Referencias Personales' },
+    { id: 'sec-laboral', label: '7. Historial Laboral' },
+    { id: 'sec-evidencias', label: '8. Documentos y Evidencias' }
+  ];
+  
+  const sectionsConfigField = currentTemplate.form_schema.find(f => f.id === '__sections_config__');
+  if (sectionsConfigField && sectionsConfigField.sections) {
+    customSections = JSON.parse(JSON.stringify(sectionsConfigField.sections));
+  } else {
+    customSections = JSON.parse(JSON.stringify(defaultSections));
+  }
+  
+  // Filtrar metadato del esquema de campos activos
+  currentTemplate.form_schema = currentTemplate.form_schema.filter(f => f.id !== '__sections_config__');
+  
   document.getElementById('current-template-count').innerText = `${currentTemplate.form_schema.length} campos detectados`;
   
   // Asegurar que tengan sección asignada
@@ -88,8 +113,207 @@ function selectTemplate(id) {
     if (!field.section) field.section = getSuggestedSection(field.id);
   });
   
+  updateSectionOptions();
+  renderSectionsList();
   renderFieldsGrouped();
 }
+
+// ==========================================================================
+// LOGICA DE CONFIGURACIÓN DINÁMICA DE SECCIONES (ASISTENTE)
+// ==========================================================================
+
+window.toggleSectionsManager = function() {
+  const content = document.getElementById('sections-manager-content');
+  const toggleIcon = document.getElementById('sections-toggle-icon');
+  if (content.style.display === 'none') {
+    content.style.display = 'block';
+    toggleIcon.innerText = '▲';
+    toggleIcon.style.transform = 'rotate(180deg)';
+  } else {
+    content.style.display = 'none';
+    toggleIcon.innerText = '▼';
+    toggleIcon.style.transform = 'rotate(0deg)';
+  }
+};
+
+window.renderSectionsList = function() {
+  const container = document.getElementById('sections-list-container');
+  if (!container) return;
+  
+  container.innerHTML = '';
+  
+  if (customSections.length === 0) {
+    container.innerHTML = `<p class="text-center text-muted" style="margin: 10px 0; font-size: 0.9rem;">No hay secciones configuradas. Agrega una nueva sección.</p>`;
+    return;
+  }
+  
+  customSections.forEach((sec, idx) => {
+    const row = document.createElement('div');
+    row.style.display = 'flex';
+    row.style.alignItems = 'center';
+    row.style.gap = '12px';
+    row.style.background = 'var(--bg-card)';
+    row.style.padding = '8px 12px';
+    row.style.borderRadius = '8px';
+    row.style.border = '1px solid var(--border-card)';
+    row.style.boxShadow = '0 1px 3px rgba(0,0,0,0.02)';
+    
+    // ID de la sección (Badge de sólo lectura)
+    const idBadge = document.createElement('span');
+    idBadge.innerText = sec.id;
+    idBadge.style.fontSize = '0.75rem';
+    idBadge.style.background = 'var(--color-primary-glow)';
+    idBadge.style.color = 'var(--color-primary)';
+    idBadge.style.padding = '4px 8px';
+    idBadge.style.borderRadius = '6px';
+    idBadge.style.fontFamily = 'monospace';
+    idBadge.style.fontWeight = '600';
+    idBadge.style.width = '110px';
+    idBadge.style.whiteSpace = 'nowrap';
+    idBadge.style.overflow = 'hidden';
+    idBadge.style.textOverflow = 'ellipsis';
+    idBadge.style.textAlign = 'center';
+    
+    // Input para el título de la sección
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = sec.label;
+    input.className = 'form-input';
+    input.style.flex = '1';
+    input.style.padding = '6px 10px';
+    input.style.fontSize = '0.9rem';
+    input.oninput = (e) => {
+      customSections[idx].label = e.target.value;
+      updateSectionOptions();
+      // Actualizar cabecera de acordeón en vivo si está renderizada
+      const headerTitle = document.querySelector(`.section-group[data-section="${sec.id}"] .section-title span`);
+      if (headerTitle) {
+        headerTitle.innerText = e.target.value;
+      }
+    };
+    
+    // Botones de acción
+    const actions = document.createElement('div');
+    actions.style.display = 'flex';
+    actions.style.gap = '4px';
+    
+    // Botón Subir (▲)
+    const upBtn = document.createElement('button');
+    upBtn.className = 'btn-icon';
+    upBtn.innerHTML = '<i data-lucide="arrow-up" style="width: 14px; height: 14px;"></i>';
+    upBtn.style.padding = '6px';
+    upBtn.style.border = 'none';
+    upBtn.style.background = 'transparent';
+    upBtn.style.color = 'var(--color-text-main)';
+    upBtn.disabled = idx === 0;
+    upBtn.style.opacity = idx === 0 ? '0.3' : '1';
+    upBtn.style.cursor = idx === 0 ? 'not-allowed' : 'pointer';
+    upBtn.onclick = () => moveSection(idx, -1);
+    
+    // Botón Bajar (▼)
+    const downBtn = document.createElement('button');
+    downBtn.className = 'btn-icon';
+    downBtn.innerHTML = '<i data-lucide="arrow-down" style="width: 14px; height: 14px;"></i>';
+    downBtn.style.padding = '6px';
+    downBtn.style.border = 'none';
+    downBtn.style.background = 'transparent';
+    downBtn.style.color = 'var(--color-text-main)';
+    downBtn.disabled = idx === customSections.length - 1;
+    downBtn.style.opacity = idx === customSections.length - 1 ? '0.3' : '1';
+    downBtn.style.cursor = idx === customSections.length - 1 ? 'not-allowed' : 'pointer';
+    downBtn.onclick = () => moveSection(idx, 1);
+    
+    // Botón Eliminar (🗑️)
+    const delBtn = document.createElement('button');
+    delBtn.className = 'btn-icon';
+    delBtn.innerHTML = '<i data-lucide="trash-2" style="width: 14px; height: 14px; color: #ef4444;"></i>';
+    delBtn.style.padding = '6px';
+    delBtn.style.border = 'none';
+    delBtn.style.background = 'transparent';
+    delBtn.style.cursor = 'pointer';
+    delBtn.onclick = () => deleteSection(sec.id);
+    
+    actions.appendChild(upBtn);
+    actions.appendChild(downBtn);
+    actions.appendChild(delBtn);
+    
+    row.appendChild(idBadge);
+    row.appendChild(input);
+    row.appendChild(actions);
+    
+    container.appendChild(row);
+  });
+  
+  lucide.createIcons();
+};
+
+window.moveSection = function(index, direction) {
+  const targetIndex = index + direction;
+  if (targetIndex < 0 || targetIndex >= customSections.length) return;
+  
+  // Intercambiar en el array customSections
+  const temp = customSections[index];
+  customSections[index] = customSections[targetIndex];
+  customSections[targetIndex] = temp;
+  
+  updateSectionOptions();
+  renderSectionsList();
+  renderFieldsGrouped();
+};
+
+window.addNewSection = function() {
+  const newName = prompt('Escribe el título de la nueva sección:');
+  if (!newName || newName.trim() === '') return;
+  
+  // Generar ID único limpio
+  const cleanId = 'sec-custom-' + Date.now();
+  
+  customSections.push({
+    id: cleanId,
+    label: newName.trim()
+  });
+  
+  updateSectionOptions();
+  renderSectionsList();
+  renderFieldsGrouped();
+  
+  // Hacer scroll suave hacia el contenedor de la nueva sección vacía
+  setTimeout(() => {
+    const newGroup = document.querySelector(`.section-group[data-section="${cleanId}"]`);
+    if (newGroup) {
+      newGroup.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, 100);
+};
+
+window.deleteSection = function(secId) {
+  const section = customSections.find(s => s.id === secId);
+  if (!section) return;
+  
+  const fields = currentTemplate.form_schema.filter(f => f.section === secId);
+  
+  let confirmMsg = `¿Estás seguro de que quieres eliminar la sección "${section.label}"?`;
+  if (fields.length > 0) {
+    confirmMsg += `\n\n⚠️ ¡Atención! Esta sección contiene ${fields.length} campos. Si la eliminas, todos sus campos serán movidos automáticamente a la sección "❌ Ocultos / No Mostrar" para que no pierdas ningún dato.`;
+  }
+  
+  if (confirm(confirmMsg)) {
+    // Reubicar campos a 'hidden'
+    if (fields.length > 0) {
+      fields.forEach(field => {
+        field.section = 'hidden';
+      });
+    }
+    
+    // Eliminar sección del array
+    customSections = customSections.filter(s => s.id !== secId);
+    
+    updateSectionOptions();
+    renderSectionsList();
+    renderFieldsGrouped();
+  }
+};
+
 
 // Búsqueda de campos
 document.getElementById('search-fields').addEventListener('input', (e) => {
@@ -297,8 +521,14 @@ window.toggleVisibility = function(checkboxElem) {
   const accordion = checkboxElem.closest('.field-accordion');
   if (checkboxElem.checked) {
     accordion.classList.remove('hidden-field');
-    // Mover visualmente a Datos Personales (como fallback general)
-    document.getElementById('list-sec-personales').appendChild(accordion);
+    // Mover visualmente a la primera sección activa disponible
+    const firstActiveSec = customSections.length > 0 ? customSections[0].id : 'sec-personales';
+    const targetList = document.getElementById(`list-${firstActiveSec}`);
+    if (targetList) {
+      targetList.appendChild(accordion);
+    } else {
+      document.getElementById('list-hidden').appendChild(accordion);
+    }
   } else {
     accordion.classList.add('hidden-field');
     // Mover a la sección oculta
@@ -397,6 +627,12 @@ document.getElementById('btn-save').addEventListener('click', async () => {
     });
   });
   
+  // Inyectar el bloque especial de configuración de secciones
+  newSchema.unshift({
+    id: '__sections_config__',
+    sections: customSections
+  });
+  
   // Guardar en Supabase
   const btn = document.getElementById('btn-save');
   const originalText = btn.innerHTML;
@@ -416,7 +652,9 @@ document.getElementById('btn-save').addEventListener('click', async () => {
   // Actualizar template local original
   const templateIdx = templates.findIndex(t => t.id === currentTemplate.id);
   templates[templateIdx].form_schema = newSchema;
-  currentTemplate.form_schema = JSON.parse(JSON.stringify(newSchema));
+  
+  // Para currentTemplate en memoria, mantenemos el esquema libre de __sections_config__
+  currentTemplate.form_schema = JSON.parse(JSON.stringify(newSchema)).filter(f => f.id !== '__sections_config__');
   
   btn.innerHTML = originalText;
   lucide.createIcons();
