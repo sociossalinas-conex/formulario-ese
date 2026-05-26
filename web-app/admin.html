@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Editor de Formatos - Antigravity</title>
+  
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="index.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  
+  <style>
+    body {
+      padding: 0;
+      margin: 0;
+      background: var(--bg-body);
+      color: var(--color-text-main);
+    }
+    
+    .admin-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+    
+    .admin-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border-card);
+    }
+    
+    .admin-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: var(--color-primary);
+    }
+    
+    .admin-layout {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 24px;
+      align-items: start;
+    }
+    
+    .sidebar {
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: var(--border-radius-lg);
+      padding: 16px;
+      position: sticky;
+      top: 24px;
+    }
+    
+    .template-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 16px;
+    }
+    
+    .template-btn {
+      text-align: left;
+      padding: 12px 16px;
+      border-radius: 8px;
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--color-text-main);
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .template-btn:hover {
+      background: rgba(0,0,0,0.05);
+    }
+    
+    .template-btn.active {
+      background: var(--color-primary-glow);
+      color: var(--color-primary);
+      border-color: var(--color-primary);
+    }
+    
+    .editor-main {
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: var(--border-radius-lg);
+      padding: 24px;
+      min-height: 500px;
+    }
+    
+    .editor-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      background: rgba(37, 99, 235, 0.05);
+      padding: 16px;
+      border-radius: 8px;
+      border: 1px solid rgba(37, 99, 235, 0.1);
+    }
+    
+    .field-card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border-card);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 16px;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+      transition: border-color 0.2s ease;
+    }
+    
+    .field-card:hover {
+      border-color: rgba(37, 99, 235, 0.3);
+    }
+    
+    .field-card.hidden-field {
+      opacity: 0.5;
+    }
+    
+    .field-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(0,0,0,0.05);
+      padding-bottom: 12px;
+    }
+    
+    .field-id {
+      font-family: monospace;
+      font-size: 0.8rem;
+      background: rgba(0,0,0,0.05);
+      padding: 4px 8px;
+      border-radius: 4px;
+      color: var(--color-text-muted);
+    }
+    
+    .field-controls {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    
+    .control-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--color-text-muted);
+    }
+    
+    .control-input {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid var(--border-card);
+      border-radius: 6px;
+      background: var(--bg-body);
+      color: var(--color-text-main);
+      font-size: 0.9rem;
+    }
+    
+    .control-input:focus {
+      outline: none;
+      border-color: var(--color-primary);
+    }
+    
+    .options-row {
+      grid-column: span 2;
+    }
+    
+    .toast-message {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #10b981;
+      color: white;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-weight: 500;
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+      transform: translateY(100px);
+      opacity: 0;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      z-index: 1000;
+    }
+    
+    .toast-message.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+    
+    .loading-spinner {
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+  <div class="admin-container">
+    <header class="admin-header">
+      <div class="admin-title">
+        <i data-lucide="settings-2"></i>
+        Editor Visual de Formatos
+      </div>
+      <div>
+        <button class="btn btn-secondary" onclick="window.close()">
+          <i data-lucide="x"></i> Cerrar
+        </button>
+      </div>
+    </header>
+
+    <div class="admin-layout">
+      
+      <!-- Sidebar de Plantillas -->
+      <aside class="sidebar">
+        <h3 style="font-size: 1.1rem; margin-bottom: 4px;">Tus Plantillas</h3>
+        <p style="font-size: 0.8rem; color: var(--color-text-muted);">Selecciona una para configurar</p>
+        
+        <div class="template-list" id="template-list">
+          <div style="padding: 20px; text-align: center; color: var(--color-text-muted);">
+            <i data-lucide="loader-2" class="loading-spinner"></i>
+            <p>Cargando...</p>
+          </div>
+        </div>
+      </aside>
+      
+      <!-- Área principal de edición -->
+      <main class="editor-main" id="editor-main" style="display: none;">
+        <div class="editor-header">
+          <div>
+            <h2 id="current-template-name" style="margin: 0 0 4px 0; color: var(--color-primary);">Nombre de Plantilla</h2>
+            <p id="current-template-count" style="margin: 0; font-size: 0.9rem; color: var(--color-text-muted);">0 campos detectados</p>
+          </div>
+          <button class="btn btn-primary" id="btn-save" style="display: flex; align-items: center; gap: 8px;">
+            <i data-lucide="save"></i>
+            <span>Guardar Cambios</span>
+          </button>
+        </div>
+        
+        <div id="fields-container">
+          <!-- Campos generados aquí -->
+        </div>
+      </main>
+      
+      <!-- Mensaje cuando no hay selección -->
+      <main class="editor-main" id="empty-state" style="display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--color-text-muted);">
+        <i data-lucide="file-json" style="width: 48px; height: 48px; margin-bottom: 16px; opacity: 0.5;"></i>
+        <h3>Selecciona una plantilla del menú izquierdo</h3>
+        <p>Aquí podrás personalizar las pestañas, ayudas y opciones de cada campo.</p>
+      </main>
+
+    </div>
+  </div>
+
+  <div id="toast" class="toast-message">
+    <i data-lucide="check-circle"></i> Cambios guardados con éxito en Supabase
+  </div>
+
+  <script src="admin.js"></script>
+</body>
+</html>
