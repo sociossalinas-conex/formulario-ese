@@ -227,6 +227,15 @@ function createFieldAccordion(field) {
           <label class="control-label">Tipo de Campo</label>
           ${typeSelectHtml}
         </div>
+        <div class="control-group">
+          <label class="control-label">Regla de Formato (Al Escribir)</label>
+          <select class="control-input field-transform">
+            <option value="none" ${!field.transform || field.transform === 'none' ? 'selected' : ''}>Sin formato automático</option>
+            <option value="uppercase" ${field.transform === 'uppercase' ? 'selected' : ''}>MAYÚSCULAS</option>
+            <option value="lowercase" ${field.transform === 'lowercase' ? 'selected' : ''}>minúsculas</option>
+            <option value="titlecase" ${field.transform === 'titlecase' ? 'selected' : ''}>Nombre Propio (Capitalizar palabras)</option>
+          </select>
+        </div>
         
         <div class="control-group date-options-row" style="display: ${field.tipo === 'date' ? 'flex' : 'none'}; flex-direction: row; align-items: center; gap: 8px; margin-top: 8px;">
           <input type="checkbox" class="field-default-today" id="chk-today-${field.id}" ${field.defaultToday ? 'checked' : ''}>
@@ -293,9 +302,12 @@ document.getElementById('btn-add-field').addEventListener('click', () => {
   
   const id = newId.trim().toLowerCase().replace(/\s+/g, '_');
   
+  const baseLabel = id.replace(/_/g, ' ');
+  const capitalizedLabel = baseLabel.charAt(0).toUpperCase() + baseLabel.slice(1);
+  
   const newField = {
     id: id,
-    label: id.replace(/_/g, ' '),
+    label: capitalizedLabel,
     tipo: 'text',
     section: 'sec-personales'
   };
@@ -334,6 +346,9 @@ document.getElementById('btn-save').addEventListener('click', async () => {
       const chkToday = card.querySelector('.field-default-today');
       const defaultToday = chkToday ? chkToday.checked : false;
       
+      const transformSelect = card.querySelector('.field-transform');
+      const transform = transformSelect ? transformSelect.value : 'none';
+      
       const updatedField = {
         id: id,
         label: label,
@@ -341,7 +356,8 @@ document.getElementById('btn-save').addEventListener('click', async () => {
         section: sectionVal,
         placeholder: placeholder,
         ayuda: ayuda,
-        defaultToday: defaultToday
+        defaultToday: defaultToday,
+        transform: transform
       };
       
       if (tipo === 'select' && opcionesStr.trim() !== '') {
