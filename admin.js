@@ -144,6 +144,33 @@ function selectTemplate(id) {
     }
   });
   
+  // Inyectar campos globales faltantes en el editor
+  globalRules.forEach(rule => {
+    if (rule.is_global) {
+      const exists = currentTemplate.form_schema.some(f => f.id === rule.field_id);
+      if (!exists) {
+        const cleanLabel = rule.field_id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        const validSection = (rule.section && typeof rule.section === 'string' && rule.section.startsWith('sec-')) ? rule.section : getSuggestedSection(rule.field_id);
+        currentTemplate.form_schema.push({
+          id: rule.field_id,
+          label: cleanLabel,
+          tipo: rule.tipo,
+          section: validSection,
+          placeholder: rule.placeholder || '',
+          ayuda: rule.ayuda || '',
+          dependsOn: rule.depends_on || '',
+          dependsOnValue: rule.depends_on_value || '',
+          linkFrom: rule.link_from || '',
+          opciones: rule.opciones || [],
+          defaultToday: rule.default_today || false,
+          requerido: rule.requerido || false,
+          transform: rule.transform || 'none',
+          isGlobal: true
+        });
+      }
+    }
+  });
+  
   updateSectionOptions();
   renderSectionsList();
   renderFieldsGrouped();
@@ -761,7 +788,8 @@ document.getElementById('btn-save').addEventListener('click', async () => {
           link_from: linkFrom,
           opciones: updatedField.opciones || [],
           default_today: defaultToday,
-          is_global: true
+          is_global: true,
+          section: sectionVal
         });
       } else {
         const wasGlobal = globalRules.some(r => r.field_id === id);
