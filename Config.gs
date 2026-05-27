@@ -14,7 +14,7 @@ var CONFIG = {
     ESTUDIOS: 'ESTUDIO SOCIOECONÓMICO',
     CLIENTES: 'Clientes'
   },
-  DRIVE_FOLDER_ID: '1T1V9Ps2YWoDEw_tRuaOs_RzlE2AofFFi',
+  DRIVE_FOLDER_ID: '1M6naHKDM1HLCQvEbyq4tysiskXHD7uIW',
   TEMPLATES: {
     'default': '1UI6y2B7kOAR2EgWbrrTXuSLUtawzYPQPO70BdmzZF3c'
   },
