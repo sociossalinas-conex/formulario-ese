@@ -1407,6 +1407,16 @@ function initTheme() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Comprobar si venimos de admin.html
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('admin') === 'true') {
+    // Autologin silencioso y cargar panel de administración
+    loadAdminData();
+    navigateTo('view-admin-dashboard');
+    // Limpiar url param sin recargar
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }
+
   // Inicializar el modal de mapeos aquí para asegurar que el DOM está listo
   mappingModal = document.getElementById('mapping-modal');
 
