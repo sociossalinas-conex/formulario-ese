@@ -162,8 +162,12 @@ var DocsService = {
    * Si las carpetas no existen, las crea automáticamente.
    * Si no hay un documento Google Docs en la carpeta del candidato, realiza una copia
    * de la plantilla base automáticamente y vuelca los datos de captura.
+   * @param {string} clientName - Nombre del cliente
+   * @param {string} candidateName - Nombre del candidato
+   * @param {Object} data - Mapa de respuestas a inyectar
+   * @param {string|null} [overrideTemplateId] - ID de plantilla enviado por el frontend (tiene prioridad)
    */
-  fillExistingDocInCandidateFolder: function(clientName, candidateName, data) {
+  fillExistingDocInCandidateFolder: function(clientName, candidateName, data, overrideTemplateId) {
     try {
       var rootFolder = DriveApp.getFolderById(CONFIG.DRIVE_FOLDER_ID);
       
@@ -238,24 +242,40 @@ var DocsService = {
       // FALLBACK AUTOMÁTICO EFICIENTE: Si no hay ningún documento editable, copiar la plantilla base!
       var createdNew = false;
       if (!docFile) {
-        console.warn("No se encontró ningún documento editable. Copiando plantilla base por defecto...");
-        var templateId = CONFIG.TEMPLATES['default'];
+        // PRIORIDAD 1: templateId enviado desde el frontend (configuración del mapeo de cliente)
+        var templateId = overrideTemplateId || null;
         
-        // Intentar obtener la plantilla específica del cliente si está configurada
-        var ss = SheetsService.getSpreadsheet();
-        SheetsService.initializeSchema();
-        var clientSheet = ss.getSheetByName(CONFIG.SHEETS.CLIENTES);
-        if (clientSheet) {
-          var cData = clientSheet.getDataRange().getValues();
-          var idIdx = cData[0].indexOf('id');
-          var tmplIdx = cData[0].indexOf('template_id');
-          
-          for (var i = 1; i < cData.length; i++) {
-            if (this.normalizeStr(cData[i][idIdx]) === normalizedClientSearch && cData[i][tmplIdx]) {
-              templateId = cData[i][tmplIdx];
-              break;
+        // PRIORIDAD 2 (fallback): Buscar en la hoja Clientes por NOMBRE del cliente
+        if (!templateId) {
+          try {
+            var ss = SheetsService.getSpreadsheet();
+            SheetsService.initializeSchema();
+            var clientSheet = ss.getSheetByName(CONFIG.SHEETS.CLIENTES);
+            if (clientSheet) {
+              var cData = clientSheet.getDataRange().getValues();
+              // Buscar columna 'nombre' (no 'id') para comparar con el clientName
+              var nombreIdx = cData[0].indexOf('nombre');
+              var tmplIdx = cData[0].indexOf('template_id');
+              if (nombreIdx !== -1 && tmplIdx !== -1) {
+                for (var i = 1; i < cData.length; i++) {
+                  if (this.normalizeStr(cData[i][nombreIdx]) === normalizedClientSearch && cData[i][tmplIdx]) {
+                    templateId = cData[i][tmplIdx];
+                    break;
+                  }
+                }
+              }
             }
+          } catch(sheetErr) {
+            console.warn("No se pudo consultar la hoja Clientes: " + sheetErr);
           }
+        }
+        
+        // PRIORIDAD 3 (fallback final): plantilla default
+        if (!templateId) {
+          templateId = CONFIG.TEMPLATES['default'];
+          console.warn("Usando plantilla default para: " + clientName + " (templateId no configurado)");
+        } else {
+          console.log("Usando templateId: " + templateId + " para cliente: " + clientName);
         }
         
         var templateDoc = DriveApp.getFileById(templateId);

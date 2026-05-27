@@ -269,6 +269,12 @@ function renderMappingsTable() {
     return;
   }
 
+  // Guardar datos de mapeos en un mapa global para acceso seguro desde onclick
+  window._mappingsById = {};
+  state.mappings.forEach(m => {
+    window._mappingsById[String(m.id)] = m;
+  });
+
   state.mappings.forEach(mapping => {
     const tr = document.createElement('tr');
     tr.innerHTML = `
@@ -283,7 +289,7 @@ function renderMappingsTable() {
       </td>
       <td class="text-right">
         <div class="actions-row">
-          <button class="btn-table-action edit" onclick="openEditMappingModal('${mapping.id}', '${escapeJS(mapping.client_name)}', '${escapeJS(mapping.commercial_brand)}', '${escapeJS(JSON.stringify(mapping.config || {}))}')">
+          <button class="btn-table-action edit" onclick="openEditMappingModal('${mapping.id}')">
             <i data-lucide="edit-3"></i>
           </button>
           <button class="btn-table-action delete" onclick="handleDeleteMapping('${mapping.id}')">
@@ -1179,7 +1185,8 @@ async function submitCapturedForm(e) {
             action: 'fillDoc',
             clientName: state.matchedTemplate.name,
             candidateName: candidateName,
-            answers: answers
+            answers: answers,
+            templateId: mappingConfig.templateId || ''
           })
         });
         
@@ -1245,39 +1252,22 @@ async function submitCapturedForm(e) {
 // CRUD PANEL ADMINISTRADOR: GESTIÓN DE MAPEOS (MODAL COMPORTAMIENTO)
 // ==========================================================================
 
-const mappingModal = document.getElementById('mapping-modal');
+let mappingModal = null; // Se inicializa en DOMContentLoaded
 
-document.getElementById('btn-open-mapping-modal').addEventListener('click', () => {
-  document.getElementById('mapping-id').value = "";
-  document.getElementById('mapping-client-name').value = "";
-  document.getElementById('mapping-client-name').removeAttribute('readonly');
-  document.getElementById('mapping-commercial-brand').value = "Conexion Ejecutiva";
-  document.getElementById('config-apps-script-url').value = "";
-  document.getElementById('modal-title-action').innerText = "Agregar Mapeo de Marca";
-  mappingModal.classList.add('active');
-});
+// Los listeners del modal se mueven a DOMContentLoaded para garantizar que el DOM esté listo
 
-document.getElementById('btn-close-mapping-modal').addEventListener('click', () => {
-  mappingModal.classList.remove('active');
-});
-
-document.getElementById('btn-cancel-mapping').addEventListener('click', () => {
-  mappingModal.classList.remove('active');
-});
-
-// Guardar o Editar Mapeo
-document.getElementById('mapping-form').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  
+async function _saveMappingForm() {
   const idVal = document.getElementById('mapping-id').value;
   const clientName = document.getElementById('mapping-client-name').value.trim();
   const commercialBrand = document.getElementById('mapping-commercial-brand').value;
 
+  const templateIdEl = document.getElementById('config-template-id');
   const configObj = {
     autoDate: document.getElementById('config-auto-date').checked,
     hideFields: document.getElementById('config-hide-fields').checked,
     dynamicDemandas: document.getElementById('config-dynamic-demandas').checked,
-    appsScriptUrl: document.getElementById('config-apps-script-url').value.trim()
+    appsScriptUrl: document.getElementById('config-apps-script-url').value.trim(),
+    templateId: templateIdEl ? templateIdEl.value.trim() : ''
   };
 
   const payload = {
@@ -1325,21 +1315,27 @@ document.getElementById('mapping-form').addEventListener('submit', async (e) => 
   renderMappingsTable();
   document.getElementById('kpi-mappings-count').innerText = state.mappings.length;
   mappingModal.classList.remove('active');
-});
+}
 
-function openEditMappingModal(id, clientName, commercialBrand, configStr) {
-  document.getElementById('mapping-id').value = id;
-  document.getElementById('mapping-client-name').value = clientName;
+function openEditMappingModal(id) {
+  // Obtener datos del mapeo desde el mapa global (evita inyección HTML via onclick)
+  const mapping = window._mappingsById && window._mappingsById[String(id)];
+  if (!mapping) {
+    console.error('Mapeo no encontrado para id:', id);
+    return;
+  }
+
+  const config = mapping.config || {};
+
+  document.getElementById('mapping-id').value = mapping.id;
+  document.getElementById('mapping-client-name').value = mapping.client_name;
   document.getElementById('mapping-client-name').setAttribute('readonly', 'true'); // No cambiar el cliente, solo su marca
-  document.getElementById('mapping-commercial-brand').value = commercialBrand;
-  
-  try {
-    const config = typeof configStr === 'string' ? JSON.parse(configStr) : (configStr || {});
-    document.getElementById('config-auto-date').checked = config.autoDate !== false;
-    document.getElementById('config-hide-fields').checked = config.hideFields !== false;
-    document.getElementById('config-dynamic-demandas').checked = config.dynamicDemandas !== false;
-    document.getElementById('config-apps-script-url').value = config.appsScriptUrl || '';
-  } catch(e) {}
+  document.getElementById('mapping-commercial-brand').value = mapping.commercial_brand;
+  document.getElementById('config-auto-date').checked = config.autoDate !== false;
+  document.getElementById('config-hide-fields').checked = config.hideFields !== false;
+  document.getElementById('config-dynamic-demandas').checked = config.dynamicDemandas !== false;
+  document.getElementById('config-apps-script-url').value = config.appsScriptUrl || '';
+  document.getElementById('config-template-id') && (document.getElementById('config-template-id').value = config.templateId || '');
 
   document.getElementById('modal-title-action').innerText = "Editar Mapeo de Marca";
   mappingModal.classList.add('active');
@@ -1393,6 +1389,36 @@ function initTheme() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Inicializar el modal de mapeos aquí para asegurar que el DOM está listo
+  mappingModal = document.getElementById('mapping-modal');
+
+  // Listeners del Modal de Mapeos (dentro de DOMContentLoaded para garantizar DOM disponible)
+  document.getElementById('btn-open-mapping-modal').addEventListener('click', () => {
+    document.getElementById('mapping-id').value = "";
+    document.getElementById('mapping-client-name').value = "";
+    document.getElementById('mapping-client-name').removeAttribute('readonly');
+    document.getElementById('mapping-commercial-brand').value = "Conexion Ejecutiva";
+    document.getElementById('config-apps-script-url').value = "";
+    const tmplEl = document.getElementById('config-template-id');
+    if (tmplEl) tmplEl.value = "";
+    document.getElementById('modal-title-action').innerText = "Agregar Mapeo de Marca";
+    mappingModal.classList.add('active');
+  });
+
+  document.getElementById('btn-close-mapping-modal').addEventListener('click', () => {
+    mappingModal.classList.remove('active');
+  });
+
+  document.getElementById('btn-cancel-mapping').addEventListener('click', () => {
+    mappingModal.classList.remove('active');
+  });
+
+  // Guardar o Editar Mapeo
+  document.getElementById('mapping-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    await _saveMappingForm();
+  });
+
   initTheme();
   
   // Asignar listeners del Home

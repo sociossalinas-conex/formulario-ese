@@ -31,8 +31,10 @@ function doPost(e) {
       var clientName = postData.clientName;
       var candidateName = postData.candidateName;
       var answers = postData.answers;
+      // templateId puede venir del frontend (config del mapeo del cliente)
+      var templateId = postData.templateId || null;
       
-      var res = DocsService.fillExistingDocInCandidateFolder(clientName, candidateName, answers);
+      var res = DocsService.fillExistingDocInCandidateFolder(clientName, candidateName, answers, templateId);
       
       return ContentService.createTextOutput(JSON.stringify(res))
         .setMimeType(ContentService.MimeType.JSON);

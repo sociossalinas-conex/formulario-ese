@@ -1079,7 +1079,8 @@ window.linkDocForRecord = async function(id) {
         action: 'fillDoc',
         clientName: clientName,
         candidateName: candidateName,
-        answers: answers
+        answers: answers,
+        templateId: mappingConfig.templateId || ''
       })
     });
     
