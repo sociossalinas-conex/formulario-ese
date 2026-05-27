@@ -870,8 +870,8 @@ function renderCapturesTable(records) {
         <td><span class="company-badge" style="background: rgba(37, 99, 235, 0.08); color: var(--color-primary); border: 1px solid rgba(37, 99, 235, 0.15);">${escapeHTML(record.client_name || 'N/A')}</span></td>
         <td><span class="commercial-badge" style="background: rgba(16, 185, 129, 0.08); color: var(--color-accent); border: 1px solid rgba(16, 185, 129, 0.15);">${escapeHTML(brand)}</span></td>
         <td style="font-family: monospace; font-size: 0.85rem; color: var(--color-text-muted);">${dataKeysCount} respuestas</td>
-        <td style="overflow: visible; max-width: none; text-overflow: clip;">
-          <div style="display: flex; gap: 6px; align-items: center; justify-content: center;">
+        <td class="actions-cell" style="overflow: visible; max-width: none; text-overflow: clip;">
+          <div style="display: flex; gap: 6px; align-items: center; justify-content: center; flex-wrap: wrap;">
             <button class="btn" style="padding: 5px 10px; font-size: 0.72rem; background: rgba(37, 99, 235, 0.1); border-color: rgba(37, 99, 235, 0.2); color: var(--color-primary); display: inline-flex; align-items: center; gap: 4px; cursor: pointer; font-weight: 500;" onclick="exportSingleCaptureToCSV('${record.id}')" title="Descargar respuestas en CSV">
               <i data-lucide="download" style="width: 12px; height: 12px;"></i> CSV Info
             </button>
@@ -1028,11 +1028,18 @@ function escapeHTML(str) {
 
 // Vincular/Generar en vivo el Google Doc para un registro que carece de él
 window.linkDocForRecord = async function(id) {
-  const btn = document.getElementById(`btn-link-doc-${id}`);
+  const btnLink = document.getElementById(`btn-link-doc-${id}`);
+  const btnRegen = document.getElementById(`btn-regen-doc-${id}`);
+  
+  // Usar el botón que esté presente en la UI
+  const btn = btnRegen || btnLink;
+  
   const record = dbCaptures.find(r => r.id === id);
   if (!record) return;
   
+  let originalHtml = '';
   if (btn) {
+    originalHtml = btn.innerHTML;
     btn.disabled = true;
     btn.innerHTML = `<i data-lucide="loader-2" class="loading-spinner" style="width: 12px; height: 12px; display: inline-block; animation: spin 1s linear infinite;"></i> Vinculando...`;
     lucide.createIcons();
@@ -1056,7 +1063,7 @@ window.linkDocForRecord = async function(id) {
       alert(`No se encontró una configuración de Apps Script asociada al cliente "${clientName}". Por favor, agrega o revisa el mapeo de este cliente en el Panel.`);
       if (btn) {
         btn.disabled = false;
-        btn.innerHTML = `<i data-lucide="link-2" style="width: 12px; height: 12px;"></i> Vincular Doc`;
+        btn.innerHTML = originalHtml;
         lucide.createIcons();
       }
       return;
@@ -1067,7 +1074,7 @@ window.linkDocForRecord = async function(id) {
       alert(`El cliente "${clientName}" está configurado, pero no cuenta con un URL de Google Apps Script. Por favor configúralo en el área de mapeos.`);
       if (btn) {
         btn.disabled = false;
-        btn.innerHTML = `<i data-lucide="link-2" style="width: 12px; height: 12px;"></i> Vincular Doc`;
+        btn.innerHTML = originalHtml;
         lucide.createIcons();
       }
       return;
@@ -1127,7 +1134,7 @@ window.linkDocForRecord = async function(id) {
       alert(`⚠️ Problema al rellenar/vincular el documento en Google Drive:\n\n${errorMsg}\n\nPor favor, verifica las carpetas y la plantilla del cliente en Drive.`);
       if (btn) {
         btn.disabled = false;
-        btn.innerHTML = `<i data-lucide="link-2" style="width: 12px; height: 12px;"></i> Vincular Doc`;
+        btn.innerHTML = originalHtml;
         lucide.createIcons();
       }
     }
@@ -1136,7 +1143,7 @@ window.linkDocForRecord = async function(id) {
     alert(`Error de conexión al intentar vincular con Google Apps Script: ${err.message}`);
     if (btn) {
       btn.disabled = false;
-      btn.innerHTML = `<i data-lucide="link-2" style="width: 12px; height: 12px;"></i> Vincular Doc`;
+      btn.innerHTML = originalHtml;
       lucide.createIcons();
     }
   }
