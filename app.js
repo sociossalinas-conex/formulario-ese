@@ -2080,7 +2080,7 @@ function setupCustomAutocompleteAndCalculations() {
       pillContainer.style.cssText = 'display: flex; gap: 6px; overflow-x: auto; padding: 4px 0; margin-top: 4px;';
       input.parentNode.appendChild(pillContainer);
       
-      const roles = ['Padre', 'Madre', 'Hermano', 'Candidato'];
+      const roles = ['Padre', 'Madre', 'Hermano'];
       pillContainer.innerHTML = roles.map(r => `
         <button type="button" class="btn-pill" style="background: rgba(16,185,129,0.06); border: 1px solid rgba(16,185,129,0.12); color: #10b981; padding: 4px 10px; border-radius: 12px; font-size: 0.74rem; font-weight: 600; cursor: pointer; transition: all 0.2s;" onclick="quickFillFamiliarName('${input.id}', '${r}')">
           ${r}
