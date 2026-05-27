@@ -225,6 +225,9 @@ async function fetchClientMappings() {
     state.mappings = [...localMappingsFallback];
   }
   
+  // Ordenar alfabéticamente por nombre de empresa
+  state.mappings.sort((a, b) => a.client_name.localeCompare(b.client_name));
+  
   // Renderizar la tabla de mapeos y actualizar KPI
   renderMappingsTable();
   document.getElementById('kpi-mappings-count').innerText = state.mappings.length;
@@ -452,7 +455,7 @@ function classifyFieldSection(fieldId) {
   if (id.includes('grado') || id.includes('escolar') || id.includes('escuela') || id.includes('documento_obtenido') || id.includes('inmueble') || id.includes('automovil') || id.includes('moto') || id.includes('tipo_casa') || id === 'casa' || id.includes('terreno') || id.match(/valor.*aproximado/) || id.includes('dueño') || id.includes('comprobatorio') || id.includes('habit') || id.includes('limpieza') || id.includes('construccion') || id.includes('baño') || id.includes('bano') || id.includes('cocina') || id.includes('sala') || id.includes('comedor') || id.includes('cuarto') || id.includes('recamara') || id.includes('nivel') || id.includes('estacionamiento') || id.includes('urbana') || id.includes('mueble') || id.match(/años.*escuela/)) return 'sec-escolaridad';
 
   // 4. Familiar y Economía (Módulos 3 y 5)
-  if (id.includes('parentesco') || id.includes('ocupacion') || id.match(/telefono.*empleo/) || id.includes('aportador') || id.includes('ingreso') || id.includes('egreso') || id.includes('predial') || id.includes('hipoteca') || id.includes('renta') || id.includes('servicios') || id.includes('luz') || id.includes('agua') || id.includes('gas') || id.includes('cable') || id.includes('internet') || id.includes('pavimentacion') || id.includes('vigilancia') || id.includes('alumbrado') || id.includes('alimentacion') || id.includes('transporte') || id.includes('educacion') || id.includes('colegiatura') || id.includes('vestido') || id.includes('diversion') || id.includes('gastos_medicos') || id.includes('entretenimiento') || id.match(/plan.*celular/) || id.includes('mascotas_gasto') || id.includes('mantenimiento') || id.includes('deuda') || id.includes('observaciones_familia') || id.includes('ref_eco_')) return 'sec-economia';
+  if (id.includes('parentesco') || id.includes('ocupacion') || id.match(/telefono.*empleo/) || id.includes('hermano') || id.includes('hijo') || id.includes('hija') || id.includes('conyuge') || id.includes('espos') || id.includes('aportador') || id.includes('ingreso') || id.includes('egreso') || id.includes('predial') || id.includes('hipoteca') || id.includes('renta') || id.includes('servicios') || id.includes('luz') || id.includes('agua') || id.includes('gas') || id.includes('cable') || id.includes('internet') || id.includes('pavimentacion') || id.includes('vigilancia') || id.includes('alumbrado') || id.includes('alimentacion') || id.includes('transporte') || id.includes('educacion') || id.includes('colegiatura') || id.includes('vestido') || id.includes('diversion') || id.includes('gastos_medicos') || id.includes('entretenimiento') || id.match(/plan.*celular/) || id.includes('mascotas_gasto') || id.includes('mantenimiento') || id.includes('deuda') || id.includes('observaciones_familia') || id.includes('ref_eco_')) return 'sec-economia';
 
   // 5. Entorno y Salud (Módulo 6)
   if (id.includes('originario') || id.includes('densidad') || id.includes('migratorio') || id.includes('farmaco') || id.includes('vandalismo') || id.includes('club') || id.includes('asociacion') || id.includes('deportivo') || id.includes('religion') || id.includes('pasatiempo') || id.match(/mascotas.*cantidad/) || id.includes('tatuaje') || id.includes('alergia') || id.includes('fuma') || id.includes('toma') || id.includes('peso') || id.includes('altura') || id.includes('deporte') || id.includes('enfermedad') || id.includes('patologico') || id.includes('dental') || id.includes('aspecto') || id.match(/familiar.*empresa/) || id.match(/laborado.*empresa/) || id.includes('enteró_vacante') || id.includes('autodescripcion') || id.includes('meta') || id.match(/mas.*importante/)) return 'sec-entorno';
@@ -566,6 +569,9 @@ async function buildDynamicForm(template) {
       }
     }
   });
+
+  // Inyectar estructura global de Hermanos e Hijos Variables
+  injectDynamicFamilyFields(schema);
 
   // 4. Ordenar lógicamente la sección de Datos Personales
   const fieldOrderPriority = [
@@ -1835,8 +1841,8 @@ function parseDateString(dateStr) {
       day: parseInt(match[3], 10)
     };
   }
-  // Spanish DD/MM/YYYY or DD-MM-YYYY
-  match = dateStr.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+  // Spanish DD/MM/YYYY, DD-MM-YYYY, or DD MM YYYY
+  match = dateStr.match(/^(\d{1,2})[/\s-](\d{1,2})[/\s-](\d{4})$/);
   if (match) {
     return {
       year: parseInt(match[3], 10),
@@ -2040,7 +2046,7 @@ const MexicanCalculationsEngine = {
 // ==========================================================================
 function setupCustomAutocompleteAndCalculations() {
   const candidateInput = document.getElementById('candidate-name-input');
-  const dobInput = document.querySelector('input[type="date"][id*="nacimiento"], input[type="date"][id*="nac"]');
+  const dobInput = document.querySelector('input[id*="nacimiento"], input[id*="nac"]');
   const genderSelect = document.querySelector('select[id*="genero"], select[id*="género"], select[id*="sexo"]');
   const stateSelect = document.querySelector('select[id*="lugar_nacimiento"], select[id*="lugar_de_nacimiento"], select[id*="estado_nacimiento"]');
   
@@ -2108,7 +2114,7 @@ function triggerMexicanCalculations() {
   const candidateInput = document.getElementById('candidate-name-input');
   const candidateName = candidateInput ? candidateInput.value.trim() : '';
   
-  const dobInput = document.querySelector('input[type="date"][id*="nacimiento"], input[type="date"][id*="nac"]');
+  const dobInput = document.querySelector('input[id*="nacimiento"], input[id*="nac"]');
   const genderSelect = document.querySelector('select[id*="genero"], select[id*="género"], select[id*="sexo"]');
   const stateSelect = document.querySelector('select[id*="lugar_nacimiento"], select[id*="lugar_de_nacimiento"], select[id*="estado_nacimiento"]');
   
@@ -2420,8 +2426,8 @@ document.addEventListener('input', (e) => {
   const val = target.value;
 
   // --- 1. CONCORDANCIA DE GÉNERO AUTOMÁTICA EN PARENTESCO ---
-  // Si se escribe en un campo de nombre de familiar (ej. ref_eco_nombre_1, fam_nombre_2, etc.)
-  if (id.includes('nombre') && (id.includes('ref_eco') || id.includes('fam') || id.includes('familiar'))) {
+  // Si se escribe en un campo de nombre de familiar (ej. ref_eco_nombre_1, fam_nombre_2, hermano_1_nombre, etc.)
+  if (id.includes('nombre') && (id.includes('ref_eco') || id.includes('fam') || id.includes('familiar') || id.includes('herman') || id.includes('hijo') || id.includes('hija') || id.includes('espos') || id.includes('conyuge'))) {
     const gender = guessGenderFromName(val);
     if (gender) {
       // Intentar encontrar el campo parentesco correspondiente en la misma fila/ID
@@ -2429,7 +2435,14 @@ document.addEventListener('input', (e) => {
       const parentescoId = id.replace('nombre', 'parentesco');
       const parentescoField = document.getElementById(parentescoId);
       if (parentescoField) {
-        const curParentescoVal = parentescoField.value.trim().toLowerCase();
+        let curParentescoVal = parentescoField.value.trim().toLowerCase();
+        
+        // Si está vacío, deducir la categoría desde el ID del campo
+        if (curParentescoVal === '') {
+          if (id.includes('herman')) curParentescoVal = 'hermano/a';
+          else if (id.includes('hijo') || id.includes('hija')) curParentescoVal = 'hijo/a';
+          else if (id.includes('conyuge') || id.includes('espos')) curParentescoVal = 'conyuge';
+        }
         
         if (gender === 'Femenino') {
           if (curParentescoVal.startsWith('herman') || curParentescoVal === 'hermano/a') {
@@ -2449,6 +2462,7 @@ document.addEventListener('input', (e) => {
           }
         }
         parentescoField.dispatchEvent(new Event('change', { bubbles: true }));
+        parentescoField.dispatchEvent(new Event('input', { bubbles: true }));
       }
     }
   }
@@ -2484,3 +2498,179 @@ document.addEventListener('input', (e) => {
     });
   }
 });
+
+function injectDynamicFamilyFields(schema) {
+  // 1. Hermanos
+  const hasHermanosQuestion = schema.some(f => f.id === 'tiene_hermanos');
+  if (!hasHermanosQuestion) {
+    schema.push({
+      id: 'tiene_hermanos',
+      label: '¿Tiene Hermanos?',
+      tipo: 'select',
+      section: 'sec-economia',
+      opciones: ['No tiene', 'Sí tiene'],
+      requerido: false
+    });
+
+    for (let i = 1; i <= 4; i++) {
+      const isFirst = i === 1;
+      const dependsField = isFirst ? 'tiene_hermanos' : `otro_hermano_${i - 1}`;
+      const dependsValue = isFirst ? 'Sí tiene' : 'Sí';
+
+      schema.push({
+        id: `hermano_${i}_nombre`,
+        label: `Nombre del Hermano/a ${i}`,
+        tipo: 'text',
+        section: 'sec-economia',
+        placeholder: 'Escribe el nombre completo...',
+        dependsOn: dependsField,
+        dependsOnValue: dependsValue,
+        requerido: false
+      });
+
+      schema.push({
+        id: `hermano_${i}_parentesco`,
+        label: `Parentesco Hermano/a ${i}`,
+        tipo: 'text',
+        section: 'sec-economia',
+        placeholder: 'Autocompletado...',
+        dependsOn: dependsField,
+        dependsOnValue: dependsValue,
+        requerido: false
+      });
+
+      schema.push({
+        id: `hermano_${i}_edad`,
+        label: `Edad del Hermano/a ${i}`,
+        tipo: 'number',
+        section: 'sec-economia',
+        placeholder: 'Ej. 35',
+        dependsOn: dependsField,
+        dependsOnValue: dependsValue,
+        requerido: false
+      });
+
+      schema.push({
+        id: `hermano_${i}_escolaridad`,
+        label: `Escolaridad del Hermano/a ${i}`,
+        tipo: 'select',
+        section: 'sec-economia',
+        opciones: ['Ninguna', 'Primaria', 'Secundaria', 'Preparatoria', 'Licenciatura', 'Postgrado'],
+        dependsOn: dependsField,
+        dependsOnValue: dependsValue,
+        requerido: false
+      });
+
+      schema.push({
+        id: `hermano_${i}_ocupacion`,
+        label: `Ocupación del Hermano/a ${i}`,
+        tipo: 'text',
+        section: 'sec-economia',
+        placeholder: 'Ej. Empleado, Estudiante',
+        dependsOn: dependsField,
+        dependsOnValue: dependsValue,
+        requerido: false
+      });
+
+      if (i < 4) {
+        schema.push({
+          id: `otro_hermano_${i}`,
+          label: `¿Tiene otro hermano/a? (${i})`,
+          tipo: 'select',
+          section: 'sec-economia',
+          opciones: ['No', 'Sí'],
+          dependsOn: dependsField,
+          dependsOnValue: dependsValue,
+          requerido: false
+        });
+      }
+    }
+  }
+
+  // 2. Hijos
+  const hasHijosQuestion = schema.some(f => f.id === 'tiene_hijos');
+  if (!hasHijosQuestion) {
+    schema.push({
+      id: 'tiene_hijos',
+      label: '¿Tiene Hijos?',
+      tipo: 'select',
+      section: 'sec-economia',
+      opciones: ['No tiene', 'Sí tiene'],
+      requerido: false
+    });
+
+    for (let j = 1; j <= 4; j++) {
+      const isFirst = j === 1;
+      const dependsField = isFirst ? 'tiene_hijos' : `otro_hijo_${j - 1}`;
+      const dependsValue = isFirst ? 'Sí tiene' : 'Sí';
+
+      schema.push({
+        id: `hijo_${j}_nombre`,
+        label: `Nombre del Hijo/a ${j}`,
+        tipo: 'text',
+        section: 'sec-economia',
+        placeholder: 'Escribe el nombre completo...',
+        dependsOn: dependsField,
+        dependsOnValue: dependsValue,
+        requerido: false
+      });
+
+      schema.push({
+        id: `hijo_${j}_parentesco`,
+        label: `Parentesco Hijo/a ${j}`,
+        tipo: 'text',
+        section: 'sec-economia',
+        placeholder: 'Autocompletado...',
+        dependsOn: dependsField,
+        dependsOnValue: dependsValue,
+        requerido: false
+      });
+
+      schema.push({
+        id: `hijo_${j}_edad`,
+        label: `Edad del Hijo/a ${j}`,
+        tipo: 'number',
+        section: 'sec-economia',
+        placeholder: 'Ej. 10',
+        dependsOn: dependsField,
+        dependsOnValue: dependsValue,
+        requerido: false
+      });
+
+      schema.push({
+        id: `hijo_${j}_escolaridad`,
+        label: `Escolaridad del Hijo/a ${j}`,
+        tipo: 'select',
+        section: 'sec-economia',
+        opciones: ['Ninguna', 'Primaria', 'Secundaria', 'Preparatoria', 'Licenciatura'],
+        dependsOn: dependsField,
+        dependsOnValue: dependsValue,
+        requerido: false
+      });
+
+      schema.push({
+        id: `hijo_${j}_ocupacion`,
+        label: `Ocupación del Hijo/a ${j}`,
+        tipo: 'text',
+        section: 'sec-economia',
+        placeholder: 'Ej. Estudiante, Bebé',
+        dependsOn: dependsField,
+        dependsOnValue: dependsValue,
+        requerido: false
+      });
+
+      if (j < 4) {
+        schema.push({
+          id: `otro_hijo_${j}`,
+          label: `¿Tiene otro hijo/a? (${j})`,
+          tipo: 'select',
+          section: 'sec-economia',
+          opciones: ['No', 'Sí'],
+          dependsOn: dependsField,
+          dependsOnValue: dependsValue,
+          requerido: false
+        });
+      }
+    }
+  }
+}
