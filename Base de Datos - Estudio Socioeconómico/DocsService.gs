@@ -239,43 +239,58 @@ var DocsService = {
         }
       }
       
-      // FALLBACK AUTOMÁTICO EFICIENTE: Si no hay ningún documento editable, copiar la plantilla base!
+      // ==========================================================================
+      // REGLA CLAVE: Si se envió un templateId desde el frontend,
+      // siempre se debe crear un documento NUEVO desde esa plantilla.
+      // Se borra el documento existente (si lo hay) para garantizar
+      // que el formato correcto del cliente se use siempre.
+      // ==========================================================================
       var createdNew = false;
-      if (!docFile) {
-        // PRIORIDAD 1: templateId enviado desde el frontend (configuración del mapeo de cliente)
-        var templateId = overrideTemplateId || null;
+      
+      if (overrideTemplateId) {
+        // Borrar cualquier documento existente (incorrecto) en la carpeta
+        if (docFile) {
+          console.log("templateId recibido: " + overrideTemplateId + ". Eliminando documento existente: " + docFile.getName());
+          docFile.setTrashed(true);
+          docFile = null;
+        }
         
-        // PRIORIDAD 2 (fallback): Buscar en la hoja Clientes por NOMBRE del cliente
-        if (!templateId) {
-          try {
-            var ss = SheetsService.getSpreadsheet();
-            SheetsService.initializeSchema();
-            var clientSheet = ss.getSheetByName(CONFIG.SHEETS.CLIENTES);
-            if (clientSheet) {
-              var cData = clientSheet.getDataRange().getValues();
-              // Buscar columna 'nombre' (no 'id') para comparar con el clientName
-              var nombreIdx = cData[0].indexOf('nombre');
-              var tmplIdx = cData[0].indexOf('template_id');
-              if (nombreIdx !== -1 && tmplIdx !== -1) {
-                for (var i = 1; i < cData.length; i++) {
-                  if (this.normalizeStr(cData[i][nombreIdx]) === normalizedClientSearch && cData[i][tmplIdx]) {
-                    templateId = cData[i][tmplIdx];
-                    break;
-                  }
+        // Crear copia fresca desde la plantilla del cliente
+        var templateDoc = DriveApp.getFileById(overrideTemplateId);
+        var newDocName = 'Estudio_' + candidateName.replace(/\s+/g, '_');
+        docFile = templateDoc.makeCopy(newDocName, candidateFolder);
+        console.log("Nuevo documento creado desde plantilla: " + overrideTemplateId + " -> " + docFile.getName());
+        createdNew = true;
+        
+      } else if (!docFile) {
+        // Sin overrideTemplateId y sin documento existente: usar fallback
+        var templateId = null;
+        
+        // Intentar buscar template en hoja Clientes por NOMBRE
+        try {
+          var ss = SheetsService.getSpreadsheet();
+          SheetsService.initializeSchema();
+          var clientSheet = ss.getSheetByName(CONFIG.SHEETS.CLIENTES);
+          if (clientSheet) {
+            var cData = clientSheet.getDataRange().getValues();
+            var nombreIdx = cData[0].indexOf('nombre');
+            var tmplIdx = cData[0].indexOf('template_id');
+            if (nombreIdx !== -1 && tmplIdx !== -1) {
+              for (var i = 1; i < cData.length; i++) {
+                if (this.normalizeStr(cData[i][nombreIdx]) === normalizedClientSearch && cData[i][tmplIdx]) {
+                  templateId = cData[i][tmplIdx];
+                  break;
                 }
               }
             }
-          } catch(sheetErr) {
-            console.warn("No se pudo consultar la hoja Clientes: " + sheetErr);
           }
+        } catch(sheetErr) {
+          console.warn("No se pudo consultar la hoja Clientes: " + sheetErr);
         }
         
-        // PRIORIDAD 3 (fallback final): plantilla default
         if (!templateId) {
           templateId = CONFIG.TEMPLATES['default'];
-          console.warn("Usando plantilla default para: " + clientName + " (templateId no configurado)");
-        } else {
-          console.log("Usando templateId: " + templateId + " para cliente: " + clientName);
+          console.warn("Usando plantilla default para: " + clientName);
         }
         
         var templateDoc = DriveApp.getFileById(templateId);
