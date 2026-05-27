@@ -283,10 +283,10 @@ function renderMappingsTable() {
       </td>
       <td class="text-right">
         <div class="actions-row">
-          <button class="btn-table-action edit" onclick="openEditMappingModal(${mapping.id}, '${escapeJS(mapping.client_name)}', '${escapeJS(mapping.commercial_brand)}', '${escapeJS(JSON.stringify(mapping.config || {}))}')">
+          <button class="btn-table-action edit" onclick="openEditMappingModal('${mapping.id}', '${escapeJS(mapping.client_name)}', '${escapeJS(mapping.commercial_brand)}', '${escapeJS(JSON.stringify(mapping.config || {}))}')">
             <i data-lucide="edit-3"></i>
           </button>
-          <button class="btn-table-action delete" onclick="handleDeleteMapping(${mapping.id})">
+          <button class="btn-table-action delete" onclick="handleDeleteMapping('${mapping.id}')">
             <i data-lucide="trash-2"></i>
           </button>
         </div>
@@ -1291,8 +1291,7 @@ document.getElementById('mapping-form').addEventListener('submit', async (e) => 
     
     if (idVal) {
       // Editar existente en Supabase o local
-      const idNum = parseInt(idVal);
-      const idx = state.mappings.findIndex(m => m.id === idNum);
+      const idx = state.mappings.findIndex(m => String(m.id) === String(idVal));
       if (idx !== -1) {
         state.mappings[idx].commercial_brand = commercialBrand;
         state.mappings[idx].config = configObj;
@@ -1303,7 +1302,7 @@ document.getElementById('mapping-form').addEventListener('submit', async (e) => 
         await client
           .from('client_mappings')
           .update({ commercial_brand: commercialBrand, config: configObj })
-          .eq('id', idNum);
+          .eq('id', idVal);
       }
         
     } else {
@@ -1348,7 +1347,7 @@ function openEditMappingModal(id, clientName, commercialBrand, configStr) {
 
 async function handleDeleteMapping(id) {
   if (confirm("¿Está seguro de que desea eliminar este mapeo?")) {
-    state.mappings = state.mappings.filter(m => m.id !== id);
+    state.mappings = state.mappings.filter(m => String(m.id) !== String(id));
     
     try {
       const client = getSupabaseClient();
