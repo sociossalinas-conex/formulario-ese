@@ -243,6 +243,7 @@ var DocsService = {
         
         // Intentar obtener la plantilla específica del cliente si está configurada
         var ss = SheetsService.getSpreadsheet();
+        SheetsService.initializeSchema();
         var clientSheet = ss.getSheetByName(CONFIG.SHEETS.CLIENTES);
         if (clientSheet) {
           var cData = clientSheet.getDataRange().getValues();
