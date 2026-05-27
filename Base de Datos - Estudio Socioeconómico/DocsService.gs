@@ -248,6 +248,14 @@ var DocsService = {
       var createdNew = false;
       
       if (overrideTemplateId) {
+        // Extraer ID si el usuario pegó la URL completa por error
+        var matchId = overrideTemplateId.match(/\/d\/([a-zA-Z0-9-_]+)/);
+        if (matchId && matchId[1]) {
+          overrideTemplateId = matchId[1];
+        } else {
+          overrideTemplateId = overrideTemplateId.trim();
+        }
+
         // Borrar cualquier documento existente (incorrecto) en la carpeta
         if (docFile) {
           console.log("templateId recibido: " + overrideTemplateId + ". Eliminando documento existente: " + docFile.getName());

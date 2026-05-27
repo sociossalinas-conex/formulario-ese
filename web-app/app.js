@@ -1262,12 +1262,20 @@ async function _saveMappingForm() {
   const commercialBrand = document.getElementById('mapping-commercial-brand').value;
 
   const templateIdEl = document.getElementById('config-template-id');
+  let templateIdStr = templateIdEl ? templateIdEl.value.trim() : '';
+  if (templateIdStr.includes('/d/')) {
+    const match = templateIdStr.match(/\/d\/([a-zA-Z0-9-_]+)/);
+    if (match && match[1]) {
+      templateIdStr = match[1];
+    }
+  }
+
   const configObj = {
     autoDate: document.getElementById('config-auto-date').checked,
     hideFields: document.getElementById('config-hide-fields').checked,
     dynamicDemandas: document.getElementById('config-dynamic-demandas').checked,
     appsScriptUrl: document.getElementById('config-apps-script-url').value.trim(),
-    templateId: templateIdEl ? templateIdEl.value.trim() : ''
+    templateId: templateIdStr
   };
 
   const payload = {
