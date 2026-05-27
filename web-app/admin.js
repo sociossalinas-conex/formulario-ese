@@ -4,6 +4,18 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let templates = [];
 let currentTemplate = null;
+let globalRules = [];
+
+async function loadGlobalRules() {
+  try {
+    const { data, error } = await supabaseClient.from('global_field_rules').select('*');
+    if (!error && data) {
+      globalRules = data;
+    }
+  } catch (err) {
+    console.error("Error al cargar reglas globales:", err);
+  }
+}
 
 // Lógica de Clasificación copiada para pre-llenar los vacíos
 function getSuggestedSection(fieldId) {
@@ -36,6 +48,7 @@ function updateSectionOptions() {
 }
 
 async function loadTemplates() {
+  await loadGlobalRules();
   const { data, error } = await supabaseClient.from('socioeconomic_templates').select('*').order('name');
   if (error) {
     console.error(error);
@@ -108,9 +121,27 @@ function selectTemplate(id) {
   
   document.getElementById('current-template-count').innerText = `${currentTemplate.form_schema.length} campos detectados`;
   
-  // Asegurar que tengan sección asignada
+  // Asegurar que tengan sección asignada y aplicar reglas globales
   currentTemplate.form_schema.forEach(field => {
     if (!field.section) field.section = getSuggestedSection(field.id);
+    
+    // Buscar si hay una regla global para este ID de campo
+    const rule = globalRules.find(r => r.field_id === field.id);
+    if (rule) {
+      field.tipo = rule.tipo;
+      field.transform = rule.transform;
+      field.requerido = rule.requerido;
+      field.placeholder = rule.placeholder;
+      field.ayuda = rule.ayuda;
+      field.dependsOn = rule.depends_on;
+      field.dependsOnValue = rule.depends_on_value;
+      field.linkFrom = rule.link_from;
+      field.opciones = rule.opciones;
+      field.defaultToday = rule.default_today;
+      field.isGlobal = true;
+    } else {
+      field.isGlobal = field.isGlobal || false;
+    }
   });
   
   updateSectionOptions();
@@ -473,6 +504,11 @@ function createFieldAccordion(field) {
           <input type="checkbox" class="field-requerido" id="chk-req-${field.id}" ${field.requerido ? 'checked' : ''}>
           <label for="chk-req-${field.id}" style="font-size: 0.9rem; font-weight: 500; color: var(--color-text-main);">Campo obligatorio (Forzoso a llenar)</label>
         </div>
+        
+        <div class="control-group" style="display: flex; flex-direction: row; align-items: center; gap: 8px; margin-top: 8px; grid-column: span 2;">
+          <input type="checkbox" class="field-is-global" id="chk-glob-${field.id}" ${field.isGlobal ? 'checked' : ''}>
+          <label for="chk-glob-${field.id}" style="font-size: 0.9rem; font-weight: 600; color: var(--color-primary); cursor: pointer;">🌐 Hacer Regla Global / General (Aplica a todas las plantillas)</label>
+        </div>
 
         <div class="control-group">
           <label class="control-label">Placeholder (Texto fondo)</label>
@@ -655,6 +691,8 @@ document.getElementById('btn-save').addEventListener('click', async () => {
   if (!currentTemplate) return;
   
   const newSchema = [];
+  const globalRulesToUpsert = [];
+  const globalRulesToDelete = [];
   
   // Extraer información iterando sobre cada section-group para respetar el orden visual del DOM!
   const sectionGroups = document.querySelectorAll('.section-group');
@@ -685,6 +723,9 @@ document.getElementById('btn-save').addEventListener('click', async () => {
       const dependsOnValue = card.querySelector('.field-depends-on-value').value.trim();
       const linkFrom = card.querySelector('.field-link-from').value.trim();
       
+      const chkGlob = card.querySelector('.field-is-global');
+      const isGlobal = chkGlob ? chkGlob.checked : false;
+      
       const updatedField = {
         id: id,
         label: label,
@@ -697,7 +738,8 @@ document.getElementById('btn-save').addEventListener('click', async () => {
         transform: transform,
         dependsOn: dependsOn,
         dependsOnValue: dependsOnValue,
-        linkFrom: linkFrom
+        linkFrom: linkFrom,
+        isGlobal: isGlobal
       };
       
       if (tipo === 'select' && opcionesStr.trim() !== '') {
@@ -705,6 +747,28 @@ document.getElementById('btn-save').addEventListener('click', async () => {
       }
       
       newSchema.push(updatedField);
+      
+      if (isGlobal) {
+        globalRulesToUpsert.push({
+          field_id: id,
+          tipo: tipo,
+          transform: transform,
+          requerido: requerido,
+          placeholder: placeholder,
+          ayuda: ayuda,
+          depends_on: dependsOn,
+          depends_on_value: dependsOnValue,
+          link_from: linkFrom,
+          opciones: updatedField.opciones || [],
+          default_today: defaultToday,
+          is_global: true
+        });
+      } else {
+        const wasGlobal = globalRules.some(r => r.field_id === id);
+        if (wasGlobal) {
+          globalRulesToDelete.push(id);
+        }
+      }
     });
   });
   
@@ -736,6 +800,27 @@ document.getElementById('btn-save').addEventListener('click', async () => {
   
   // Para currentTemplate en memoria, mantenemos el esquema libre de __sections_config__
   currentTemplate.form_schema = JSON.parse(JSON.stringify(newSchema)).filter(f => f.id !== '__sections_config__');
+  
+  // Guardar reglas globales en Supabase
+  try {
+    if (globalRulesToUpsert.length > 0) {
+      const { error: upsertErr } = await supabaseClient
+        .from('global_field_rules')
+        .upsert(globalRulesToUpsert, { onConflict: 'field_id' });
+      if (upsertErr) console.error("Error al guardar reglas globales:", upsertErr);
+    }
+    if (globalRulesToDelete.length > 0) {
+      const { error: deleteErr } = await supabaseClient
+        .from('global_field_rules')
+        .delete()
+        .in('field_id', globalRulesToDelete);
+      if (deleteErr) console.error("Error al eliminar reglas globales:", deleteErr);
+    }
+    // Recargar reglas globales en memoria
+    await loadGlobalRules();
+  } catch (errGlobal) {
+    console.error("Excepción al guardar reglas globales:", errGlobal);
+  }
   
   btn.innerHTML = originalText;
   lucide.createIcons();
