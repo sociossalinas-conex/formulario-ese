@@ -350,12 +350,12 @@ async function verifyAndLoadCompany() {
       await resolveCommercialBrand(matched.name);
 
       // Limpiar input y mensaje de error
-      setTimeout(() => {
+      setTimeout(async () => {
         companyInput.value = "";
         validationMsg.classList.remove('active');
         
         // Cargar el formulario dinámico e ir a la vista de captura
-        buildDynamicForm(matched);
+        await buildDynamicForm(matched);
         navigateTo('view-form');
       }, 1000);
 
@@ -461,7 +461,7 @@ function classifyFieldSection(fieldId) {
   return 'sec-personales';
 }
 
-function buildDynamicForm(template) {
+async function buildDynamicForm(template) {
   document.getElementById('form-company-badge').innerText = template.name;
   
   const brandLogoUrl = brandLogos[state.resolvedBrand] || brandLogos["Conexion Ejecutiva"];
@@ -491,6 +491,84 @@ function buildDynamicForm(template) {
     return;
   }
 
+  // 1. Cargar reglas globales de campos en tiempo real desde Supabase
+  let globalRules = [];
+  try {
+    const client = getSupabaseClient();
+    if (client) {
+      const { data, error } = await client.from('global_field_rules').select('*');
+      if (!error && data) {
+        globalRules = data;
+      }
+    }
+  } catch (err) {
+    console.error("Error al obtener reglas globales en captura:", err);
+  }
+
+  // 2. Filtrar metadatos especiales
+  schema = schema.filter(f => {
+    if (f.id === '__sections_config__') return false;
+    if (f.id.toLowerCase() === 'nombre' || f.id.toLowerCase() === 'nombre_candidato') return false;
+    return true;
+  });
+
+  // 3. Fusionar reglas globales y aplicar sobreescrituras por defecto (tipo de sangre y fechas)
+  schema.forEach(field => {
+    const rule = globalRules.find(r => r.field_id === field.id);
+    if (rule) {
+      field.tipo = rule.tipo;
+      field.transform = rule.transform;
+      field.requerido = rule.requerido;
+      field.placeholder = rule.placeholder;
+      field.ayuda = rule.ayuda;
+      field.dependsOn = rule.depends_on;
+      field.dependsOnValue = rule.depends_on_value;
+      field.linkFrom = rule.link_from;
+      field.opciones = rule.opciones;
+      field.defaultToday = rule.default_today;
+    }
+    
+    // Regla global por defecto para tipo de sangre
+    if (field.id.toLowerCase().includes('sangre')) {
+      field.tipo = 'select';
+      field.opciones = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', 'No sabe'];
+      if (!field.label || field.label === field.id) field.label = 'Tipo de Sangre';
+    }
+    
+    // Regla global por defecto para fecha de visita
+    if (field.id.toLowerCase().includes('fecha_visita') || field.id.toLowerCase().includes('fecha_de_visita') || field.id.toLowerCase().includes('fecha_visita_domiciliaria')) {
+      field.defaultToday = true;
+    }
+  });
+
+  // 4. Ordenar lógicamente la sección de Datos Personales
+  const fieldOrderPriority = [
+    'genero', 'género', 'sexo',
+    'estado_civil',
+    'fecha_nacimiento', 'fecha_de_nacimiento', 'fecha_nac',
+    'lugar_nacimiento', 'lugar_de_nacimiento', 'estado_nacimiento',
+    'edad',
+    'curp',
+    'rfc'
+  ];
+
+  schema.sort((a, b) => {
+    const aSec = a.section || classifyFieldSection(a.id);
+    const bSec = b.section || classifyFieldSection(b.id);
+    
+    if (aSec === bSec && aSec === 'sec-personales') {
+      const getPriority = (id) => {
+        const idLower = id.toLowerCase();
+        for (let i = 0; i < fieldOrderPriority.length; i++) {
+          if (idLower.includes(fieldOrderPriority[i])) return i;
+        }
+        return 999;
+      };
+      return getPriority(a.id) - getPriority(b.id);
+    }
+    return 0;
+  });
+
   // Cargar configuración de secciones dinámica si existe
   const defaultSections = [
     { id: 'sec-estudio', label: '1. Estudio Socioeconómico' },
@@ -503,19 +581,12 @@ function buildDynamicForm(template) {
     { id: 'sec-evidencias', label: '8. Documentos y Evidencias' }
   ];
   
-  const sectionsConfigField = schema.find(f => f.id === '__sections_config__');
+  const sectionsConfigField = template.form_schema.find(f => f.id === '__sections_config__');
   if (sectionsConfigField && sectionsConfigField.sections) {
     activeWizardSections = JSON.parse(JSON.stringify(sectionsConfigField.sections));
   } else {
     activeWizardSections = JSON.parse(JSON.stringify(defaultSections));
   }
-
-  // Filtrar el campo especial de secciones y duplicados de Nombre
-  schema = schema.filter(f => {
-    if (f.id === '__sections_config__') return false;
-    if (f.id.toLowerCase() === 'nombre' || f.id.toLowerCase() === 'nombre_candidato') return false;
-    return true;
-  });
 
   const config = state.resolvedConfig || {};
   const formatLabel = (str) => str.replace(/_/g, ' ');
@@ -771,36 +842,8 @@ function buildDynamicForm(template) {
     if (fechaVisita) fechaVisita.value = today;
   }
 
-  // Setup Age calculation trigger for ALL templates and fields dynamically
-  const dobFields = document.querySelectorAll('input[type="date"][id*="nacimiento"]');
-  const ageFields = document.querySelectorAll('input[id*="edad"]');
-  
-  if (dobFields.length > 0 && ageFields.length > 0) {
-    dobFields.forEach(dobField => {
-      const handleAgeCalc = () => {
-        if (dobField.value) {
-          const dob = new Date(dobField.value);
-          const today = new Date();
-          let calcAge = today.getFullYear() - dob.getFullYear();
-          const monthDiff = today.getMonth() - dob.getMonth();
-          if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
-            calcAge--;
-          }
-          if (calcAge >= 0) {
-            ageFields.forEach(ageField => {
-              ageField.value = calcAge;
-              // Trigger input/change events to update progress and conditional visibilities
-              ageField.dispatchEvent(new Event('input', { bubbles: true }));
-              ageField.dispatchEvent(new Event('change', { bubbles: true }));
-            });
-          }
-        }
-      };
-      
-      dobField.addEventListener('input', handleAgeCalc);
-      dobField.addEventListener('change', handleAgeCalc);
-    });
-  }
+  // Setup Calculations and Autocompletes trigger dynamically
+  setupCustomAutocompleteAndCalculations();
 
   // Lógica de género y estado civil dinámico
   const bindGenderAndMaritalStatus = () => {
@@ -1010,12 +1053,13 @@ function setupProgressTracking(schema) {
   schema.forEach(field => {
     const element = document.getElementById(`field-${field.id}`);
     if (element) {
-      if (field.id.includes('direccion') || field.id.includes('calle') || field.id.includes('colonia') || field.id.includes('nombre')) {
+      const idLower = field.id.toLowerCase();
+      if (idLower.includes('nombre') || idLower.includes('direccion') || idLower.includes('dirección') || idLower.includes('calle') || idLower.includes('colonia') || idLower.includes('lugar') || idLower.includes('estado') || idLower.includes('ciudad') || idLower.includes('municipio') || idLower.includes('delegacion') || idLower.includes('referencia')) {
         element.addEventListener('input', (e) => {
           const start = e.target.selectionStart;
           const end = e.target.selectionEnd;
           e.target.value = capitalizeProperNoun(e.target.value);
-          e.target.setSelectionRange(start, end);
+          try { e.target.setSelectionRange(start, end); } catch (err) {}
         });
       }
       element.addEventListener('input', updateProgress);
@@ -1687,3 +1731,519 @@ function toTitleCase(str) {
     return word.charAt(0).toUpperCase() + word.slice(1);
   }).join(' ');
 }
+
+// ==========================================================================
+// MOTOR DE CÁLCULO DE CURP, RFC Y EDAD MEXICANOS (CLIENT-SIDE PORT)
+// ==========================================================================
+const MexicanCalculationsEngine = {
+  calculateCURP: function(nombre, apPaterno, apMaterno, fechaNac, sexo, estado) {
+    if (!nombre || !apPaterno || !fechaNac || !sexo || !estado) return '';
+    try {
+      nombre = this.cleanString(nombre);
+      apPaterno = this.cleanString(apPaterno);
+      apMaterno = apMaterno ? this.cleanString(apMaterno) : '';
+      
+      var nombresList = nombre.split(' ');
+      if (nombresList.length > 1 && (nombresList[0] === 'JOSE' || nombresList[0] === 'MARIA' || nombresList[0] === 'J' || nombresList[0] === 'MA')) {
+        nombre = nombresList[1];
+      } else {
+        nombre = nombresList[0];
+      }
+
+      apPaterno = this.removeArticles(apPaterno);
+      apMaterno = this.removeArticles(apMaterno);
+
+      var curp = '';
+      
+      // 1. Primera letra y vocal del apellido paterno
+      curp += apPaterno.charAt(0);
+      curp += this.getVocalInterna(apPaterno);
+      
+      // 2. Primera letra del apellido materno (o X si no tiene)
+      curp += apMaterno ? apMaterno.charAt(0) : 'X';
+      
+      // 3. Primera letra del nombre
+      curp += nombre.charAt(0);
+      
+      // Filtro de palabras altisonantes
+      curp = this.filterBadWords(curp);
+      
+      // 4. Fecha de nacimiento (YYMMDD)
+      var d = new Date(fechaNac);
+      var yy = d.getUTCFullYear().toString().substring(2, 4);
+      var mm = ('0' + (d.getUTCMonth() + 1)).slice(-2);
+      var dd = ('0' + d.getUTCDate()).slice(-2);
+      curp += yy + mm + dd;
+      
+      // 5. Sexo (H o M)
+      var s = String(sexo).toUpperCase().charAt(0);
+      var sexLetter = (s === 'F' || s === 'M' && String(sexo).toUpperCase() === 'MUJER') ? 'M' : 'H';
+      curp += sexLetter;
+      
+      // 6. Entidad Federativa (2 letras)
+      curp += this.getStateCode(estado);
+      
+      // 7. Consonantes internas
+      curp += this.getConsonanteInterna(apPaterno);
+      curp += apMaterno ? this.getConsonanteInterna(apMaterno) : 'X';
+      curp += this.getConsonanteInterna(nombre);
+      
+      // 8. Homoclave (letra para >= 2000, dígito para < 2000)
+      var year = d.getUTCFullYear();
+      curp += (year >= 2000) ? 'A' : '0';
+      
+      // 9. Dígito verificador
+      curp += '1'; 
+      
+      return curp.toUpperCase();
+    } catch(e) {
+      console.error("Error calculando CURP: " + e);
+      return '';
+    }
+  },
+
+  calculateRFC: function(nombre, apPaterno, apMaterno, fechaNac) {
+     if (!nombre || !apPaterno || !fechaNac) return '';
+     try {
+         var baseCurp = this.calculateCURP(nombre, apPaterno, apMaterno, fechaNac, 'H', 'DF').substring(0, 10);
+         return baseCurp + 'XXX';
+     } catch(e) {
+         return '';
+     }
+  },
+
+  cleanString: function(str) {
+      if (!str) return '';
+      return str.toUpperCase()
+                .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Remover acentos nativamente
+                .replace(/Ü/g, 'U')
+                .trim();
+  },
+
+  removeArticles: function(str) {
+      var prefixes = ['DA ', 'DAS ', 'DE ', 'DEL ', 'DER ', 'DI ', 'DIE ', 'DD ', 'EL ', 'LA ', 'LOS ', 'LAS ', 'LE ', 'LES ', 'MAC ', 'MC ', 'VAN ', 'VON ', 'Y '];
+      var words = str.split(' ');
+      var result = [];
+      for (var i = 0; i < words.length; i++) {
+          var isPrefix = false;
+          for (var j = 0; j < prefixes.length; j++) {
+              if (words[i] + ' ' === prefixes[j]) {
+                  isPrefix = true;
+                  break;
+              }
+          }
+          if (!isPrefix) result.push(words[i]);
+      }
+      return result.join(' ');
+  },
+
+  getVocalInterna: function(str) {
+      var m = str.substring(1).match(/[AEIOU]/);
+      return m ? m[0] : 'X';
+  },
+
+  getConsonanteInterna: function(str) {
+      var m = str.substring(1).match(/[^AEIOU\s]/);
+      return m ? m[0] : 'X';
+  },
+
+  getStateCode: function(estadoNombre) {
+      if (!estadoNombre) return 'NE';
+      var state = String(estadoNombre).toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      
+      if (state.length === 2) return state;
+
+      var states = {
+          "AGUASCALIENTES": "AS",
+          "BAJA CALIFORNIA": "BC",
+          "BAJA CALIFORNIA SUR": "BS",
+          "CAMPECHE": "CC",
+          "COAHUILA": "CL",
+          "COLIMA": "CM",
+          "CHIAPAS": "CS",
+          "CHIHUAHUA": "CH",
+          "CIUDAD DE MEXICO": "DF",
+          "CIUDAD DE MÉXICO": "DF",
+          "DISTRITO FEDERAL": "DF",
+          "DURANGO": "DG",
+          "GUANAJUATO": "GT",
+          "GUERRERO": "GR",
+          "HIDALGO": "HG",
+          "JALISCO": "JC",
+          "MEXICO": "MC",
+          "ESTADO DE MEXICO": "MC",
+          "ESTADO DE MÉXICO": "MC",
+          "MICHOACAN": "MN",
+          "MICHOACÁN": "MN",
+          "MORELOS": "MS",
+          "NAYARIT": "NT",
+          "NUEVO LEON": "NL",
+          "NUEVO LEÓN": "NL",
+          "OAXACA": "OC",
+          "PUEBLA": "PL",
+          "QUERETARO": "QT",
+          "QUERÉTARO": "QT",
+          "QUINTANA ROO": "QR",
+          "SAN LUIS POTOSI": "SP",
+          "SAN LUIS POTOSÍ": "SP",
+          "SINALOA": "SL",
+          "SONORA": "SR",
+          "TABASCO": "TC",
+          "TAMAULIPAS": "TS",
+          "TLAXCALA": "TL",
+          "VERACRUZ": "VZ",
+          "YUCATAN": "YN",
+          "YUCATÁN": "YN",
+          "ZACATECAS": "ZS",
+          "EXTRANJERO": "NE"
+      };
+
+      return states[state] || 'NE';
+  },
+
+  filterBadWords: function(word4) {
+      var badWords = [
+          "BACA", "BAKA", "BUEI", "BUEY", "CACA", "CACO", "CAGA", "CAGO", "CAKA", "CAKO",
+          "COGE", "COGI", "COJA", "COJE", "COJI", "COJO", "COLA", "CULO", "FALO", "FETO",
+          "GETA", "GUEI", "GUEY", "JETA", "JOTO", "KACA", "KACO", "KAGA", "KAGO", "KAKA",
+          "KAKO", "KOGE", "KOGI", "KOJA", "KOJE", "KOJI", "KOJO", "KOLA", "KULO", "LILO",
+          "LOCA", "LOCO", "LOKA", "LOKO", "MAME", "MAMI", "MAMO", "MEAR", "MEAS", "MEON",
+          "MIAR", "MION", "MOCO", "MOKO", "MULA", "MULO", "NACA", "NACO", "PEDA", "PEDO",
+          "PENE", "PIPI", "PITO", "POPO", "PUTA", "PUTO", "QULO", "RATA", "ROBA", "ROBE",
+          "ROBO", "RUIN", "SENO", "TETA", "VACA", "VAGA", "VAGO", "VAKA", "VUEI", "VUEY",
+          "WUEI", "WUEY"
+      ];
+      if (badWords.indexOf(word4) !== -1) {
+          return word4.charAt(0) + 'X' + word4.substring(2);
+      }
+      return word4;
+  }
+};
+
+// ==========================================================================
+// CONFIGURAR LISTENERS Y TRIGGERS DE COMPORTAMIENTOS DINÁMICOS
+// ==========================================================================
+function setupCustomAutocompleteAndCalculations() {
+  const candidateInput = document.getElementById('candidate-name-input');
+  const dobInput = document.querySelector('input[type="date"][id*="nacimiento"], input[type="date"][id*="nac"]');
+  const genderSelect = document.querySelector('select[id*="genero"], select[id*="género"], select[id*="sexo"]');
+  const stateSelect = document.querySelector('select[id*="lugar_nacimiento"], select[id*="lugar_de_nacimiento"], select[id*="estado_nacimiento"]');
+  
+  if (candidateInput) {
+    candidateInput.addEventListener('input', triggerMexicanCalculations);
+    candidateInput.addEventListener('change', triggerMexicanCalculations);
+  }
+  if (dobInput) {
+    dobInput.addEventListener('input', triggerMexicanCalculations);
+    dobInput.addEventListener('change', triggerMexicanCalculations);
+  }
+  if (genderSelect) {
+    genderSelect.addEventListener('change', triggerMexicanCalculations);
+    genderSelect.addEventListener('input', triggerMexicanCalculations);
+  }
+  if (stateSelect) {
+    stateSelect.addEventListener('change', triggerMexicanCalculations);
+    stateSelect.addEventListener('input', triggerMexicanCalculations);
+  }
+  
+  // Ejecutar auto-cálculos una vez al inicializar
+  triggerMexicanCalculations();
+  
+  // Inyectar píldoras rápidas para Egresos, Contribuyentes y Entorno Familiar
+  const familyNameInputs = document.querySelectorAll('input[id*="ref_eco_nombre"], input[id*="fam_nombre"], input[id*="ing_nombre"], input[id*="aportador_nombre"], input[id*="economica_nombre"], input[id*="egresos_nombre"], input[id*="nombre_familiar"]');
+  familyNameInputs.forEach(input => {
+    let pillContainer = input.parentNode.querySelector('.quick-familiar-pills');
+    if (!pillContainer) {
+      pillContainer = document.createElement('div');
+      pillContainer.className = 'quick-familiar-pills';
+      pillContainer.style.cssText = 'display: flex; gap: 6px; overflow-x: auto; padding: 4px 0; margin-top: 4px;';
+      input.parentNode.appendChild(pillContainer);
+      
+      const roles = ['Padre', 'Madre', 'Hermano', 'Candidato'];
+      pillContainer.innerHTML = roles.map(r => `
+        <button type="button" class="btn-pill" style="background: rgba(16,185,129,0.06); border: 1px solid rgba(16,185,129,0.12); color: #10b981; padding: 4px 10px; border-radius: 12px; font-size: 0.74rem; font-weight: 600; cursor: pointer; transition: all 0.2s;" onclick="quickFillFamiliarName('${input.id}', '${r}')">
+          ${r}
+        </button>
+      `).join('');
+    }
+  });
+  
+  // Inyectar píldoras rápidas para Contacto de Emergencia
+  const emergencyInputs = document.querySelectorAll('input[id*="emergencia_nombre"], input[id*="contacto_emergencia"], input[id*="nombre_emergencia"]');
+  emergencyInputs.forEach(input => {
+    let pillContainer = input.parentNode.querySelector('.quick-emergency-pills');
+    if (!pillContainer) {
+      pillContainer = document.createElement('div');
+      pillContainer.className = 'quick-emergency-pills';
+      pillContainer.style.cssText = 'display: flex; gap: 6px; overflow-x: auto; padding: 4px 0; margin-top: 4px;';
+      input.parentNode.appendChild(pillContainer);
+      
+      const roles = ['Madre', 'Padre', 'Hermano', 'Cónyuge'];
+      pillContainer.innerHTML = roles.map(r => `
+        <button type="button" class="btn-pill" style="background: rgba(37,99,235,0.06); border: 1px solid rgba(37,99,235,0.12); color: var(--color-primary); padding: 4px 10px; border-radius: 12px; font-size: 0.74rem; font-weight: 600; cursor: pointer; transition: all 0.2s;" onclick="quickFillEmergencyContact('${input.id}', '${r}')">
+          ${r}
+        </button>
+      `).join('');
+    }
+  });
+}
+
+// Trigger principal de auto-cálculos editables
+function triggerMexicanCalculations() {
+  const candidateInput = document.getElementById('candidate-name-input');
+  const candidateName = candidateInput ? candidateInput.value.trim() : '';
+  
+  const dobInput = document.querySelector('input[type="date"][id*="nacimiento"], input[type="date"][id*="nac"]');
+  const genderSelect = document.querySelector('select[id*="genero"], select[id*="género"], select[id*="sexo"]');
+  const stateSelect = document.querySelector('select[id*="lugar_nacimiento"], select[id*="lugar_de_nacimiento"], select[id*="estado_nacimiento"]');
+  
+  const curpField = document.querySelector('input[id*="curp"]');
+  const rfcField = document.querySelector('input[id*="rfc"]');
+  const ageField = document.querySelector('input[id*="edad"]');
+  
+  if (!dobInput || !dobInput.value) return;
+  
+  // 1. Edad
+  const dobVal = dobInput.value;
+  const dob = new Date(dobVal);
+  const today = new Date();
+  let calcAge = today.getFullYear() - dob.getFullYear();
+  const monthDiff = today.getMonth() - dob.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
+    calcAge--;
+  }
+  if (calcAge >= 0 && ageField) {
+    // Solo sobreescribir si el valor actual no ha sido editado por el usuario a un valor distinto
+    const currentAgeVal = ageField.value.trim();
+    if (currentAgeVal === '' || currentAgeVal == calcAge || parseInt(currentAgeVal) == calcAge) {
+      ageField.value = calcAge;
+      ageField.dispatchEvent(new Event('input', { bubbles: true }));
+      ageField.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  }
+  
+  if (!candidateName) return;
+  
+  // 2. CURP y RFC
+  const sexo = genderSelect ? genderSelect.value : 'Masculino';
+  const estado = stateSelect ? stateSelect.value : 'Ciudad de México';
+  
+  let n = '';
+  let ap = '';
+  let am = '';
+  
+  const partes = candidateName.split(' ');
+  if (partes.length >= 3) {
+    n = partes[0] + (partes.length > 3 ? ' ' + partes[1] : '');
+    ap = partes[partes.length - 2];
+    am = partes[partes.length - 1];
+  } else if (partes.length === 2) {
+    n = partes[0];
+    ap = partes[partes.length - 1];
+    am = '';
+  } else {
+    n = partes[0] || '';
+    ap = '';
+    am = '';
+  }
+  
+  if (n && ap) {
+    const curp = MexicanCalculationsEngine.calculateCURP(n, ap, am, dobVal, sexo, estado);
+    const rfc = MexicanCalculationsEngine.calculateRFC(n, ap, am, dobVal);
+    
+    if (curp && curpField) {
+      const currentCurpVal = curpField.value.trim().toUpperCase();
+      // Solo sobreescribir si está vacío o si coincide con un cálculo previo parcial
+      if (currentCurpVal === '' || currentCurpVal.substring(0, 10) === curp.substring(0, 10) || currentCurpVal.length < 10) {
+        curpField.value = curp;
+        curpField.dispatchEvent(new Event('input', { bubbles: true }));
+        curpField.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    }
+    if (rfc && rfcField) {
+      const currentRfcVal = rfcField.value.trim().toUpperCase();
+      if (currentRfcVal === '' || currentRfcVal.substring(0, 10) === rfc.substring(0, 10) || currentRfcVal.length < 10) {
+        rfcField.value = rfc;
+        rfcField.dispatchEvent(new Event('input', { bubbles: true }));
+        rfcField.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    }
+  }
+}
+
+// Búsqueda dinámica de nombres capturados
+function lookupCapturedName(role) {
+  const roleLower = role.toLowerCase();
+  if (roleLower === 'candidato') {
+    const candInput = document.getElementById('candidate-name-input');
+    return candInput ? candInput.value.trim() : '';
+  }
+  
+  const possibleFields = document.querySelectorAll('.form-input, .form-textarea, .form-select');
+  for (const f of possibleFields) {
+    const id = f.id.toLowerCase();
+    if (id.includes(roleLower) && id.includes('nombre') && !id.includes('parentesco') && !id.includes('edad') && !id.includes('telefono') && !id.includes('tel')) {
+      if (f.value && f.value.trim() !== '') return f.value.trim();
+    }
+  }
+  
+  // Buscar en Entorno Familiar si existe algún familiar con ese parentesco
+  const parentescoFields = Array.from(document.querySelectorAll('select[id*="parentesco"], input[id*="parentesco"]'));
+  const matchField = parentescoFields.find(f => f.value && f.value.toLowerCase() === roleLower);
+  if (matchField) {
+    const numMatch = matchField.id.match(/\d+/);
+    if (numMatch) {
+      const index = numMatch[0];
+      // Obtener el prefijo del ID (ej. fam_parentesco_1 -> fam)
+      const prefix = matchField.id.split('_parentesco')[0];
+      const nameField = document.getElementById(`${prefix}_nombre_${index}`) || document.getElementById(`field-${prefix}_nombre_${index}`) || document.getElementById(`${prefix}_nombre`) || document.getElementById(`field-${prefix}_nombre`);
+      if (nameField && nameField.value && nameField.value.trim() !== '') {
+        return nameField.value.trim();
+      }
+    }
+  }
+  
+  return '';
+}
+
+// Búsqueda dinámica de teléfonos capturados
+function lookupCapturedPhone(role) {
+  const roleLower = role.toLowerCase();
+  const possibleFields = document.querySelectorAll('.form-input, .form-textarea, .form-select');
+  
+  if (roleLower === 'candidato') {
+    for (const f of possibleFields) {
+      const id = f.id.toLowerCase();
+      if ((id.includes('telefono') || id.includes('tel') || id.includes('celular')) && !id.includes('padre') && !id.includes('madre') && !id.includes('emergencia') && !id.includes('trabajo') && !id.includes('empleo')) {
+        if (f.value && f.value.trim() !== '') return f.value.trim();
+      }
+    }
+  }
+  
+  for (const f of possibleFields) {
+    const id = f.id.toLowerCase();
+    if (id.includes(roleLower) && (id.includes('telefono') || id.includes('tel') || id.includes('celular') || id.includes('recados'))) {
+      if (f.value && f.value.trim() !== '') return f.value.trim();
+    }
+  }
+  
+  return '';
+}
+
+// Rellenar familiar de un solo clic
+window.quickFillFamiliarName = (inputId, role) => {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  
+  const name = lookupCapturedName(role);
+  if (name) {
+    input.value = name;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    
+    // Auto-rellenar parentesco en la misma fila
+    const possibleParentescoIds = [
+      inputId.replace('nombre', 'parentesco'),
+      inputId.replace('nombre', 'relacion'),
+      inputId.replace('aportador', 'parentesco'),
+      `field-emergencia_parentesco`
+    ];
+    
+    for (const id of possibleParentescoIds) {
+      const pField = document.getElementById(id);
+      if (pField && pField.id !== inputId) {
+        pField.value = role;
+        pField.dispatchEvent(new Event('input', { bubbles: true }));
+        pField.dispatchEvent(new Event('change', { bubbles: true }));
+        break;
+      }
+    }
+  } else {
+    alert(`Aún no se ha capturado el nombre de: ${role}.`);
+  }
+};
+
+// Rellenar contacto de emergencia
+window.quickFillEmergencyContact = (inputId, role) => {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  
+  const name = lookupCapturedName(role);
+  const phone = lookupCapturedPhone(role);
+  
+  if (name) {
+    input.value = name;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    
+    // Rellenar teléfono de emergencia
+    const possiblePhoneSelectors = [
+      inputId.replace('nombre', 'telefono'),
+      inputId.replace('nombre', 'tel'),
+      `input[id*="emergencia_telefono"]`,
+      `input[id*="emergencia_tel"]`,
+      `input[id*="telefono_emergencia"]`
+    ];
+    
+    for (const sel of possiblePhoneSelectors) {
+      const pField = document.getElementById(sel) || document.querySelector(sel);
+      if (pField && pField.id !== inputId) {
+        pField.value = phone || '';
+        pField.dispatchEvent(new Event('input', { bubbles: true }));
+        pField.dispatchEvent(new Event('change', { bubbles: true }));
+        break;
+      }
+    }
+    
+    // Rellenar parentesco de emergencia
+    const pField = document.getElementById('field-emergencia_parentesco') || document.querySelector('[id*="emergencia_parentesco"]');
+    if (pField) {
+      pField.value = role;
+      pField.dispatchEvent(new Event('input', { bubbles: true }));
+      pField.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  } else {
+    alert(`Aún no se ha capturado el nombre de: ${role}.`);
+  }
+};
+
+// Autocompletar dominios de correo en tiempo real
+document.addEventListener('input', (e) => {
+  if (e.target.matches('input[type="email"], input[id*="correo"], input[id*="email"]')) {
+    const emailInput = e.target;
+    const val = emailInput.value.trim();
+    let suggestionsContainer = emailInput.parentNode.querySelector('.email-suggestions');
+    
+    if (!suggestionsContainer) {
+      suggestionsContainer = document.createElement('div');
+      suggestionsContainer.className = 'email-suggestions';
+      suggestionsContainer.style.cssText = 'display: flex; gap: 6px; overflow-x: auto; padding: 4px 0; margin-top: 4px; z-index: 10;';
+      emailInput.parentNode.appendChild(suggestionsContainer);
+    }
+    
+    if (val && !val.includes('@')) {
+      const domains = ['@gmail.com', '@outlook.com', '@hotmail.com', '@yahoo.com.mx', '@icloud.com'];
+      suggestionsContainer.innerHTML = domains.map(d => `
+        <button type="button" class="btn-suggestion" style="background: rgba(37,99,235,0.06); border: 1px solid rgba(37,99,235,0.12); color: var(--color-primary); padding: 4px 10px; border-radius: 12px; font-size: 0.78rem; font-weight: 600; cursor: pointer; transition: all 0.2s;" onclick="completeEmailField('${emailInput.id}', '${d}')">
+          ${d}
+        </button>
+      `).join('');
+      suggestionsContainer.style.display = 'flex';
+    } else {
+      suggestionsContainer.style.display = 'none';
+    }
+  }
+});
+
+window.completeEmailField = (inputId, domain) => {
+  const input = document.getElementById(inputId);
+  if (input) {
+    input.value = input.value.trim() + domain;
+    const suggestionsContainer = input.parentNode.querySelector('.email-suggestions');
+    if (suggestionsContainer) suggestionsContainer.style.display = 'none';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    input.focus();
+  }
+};
+
