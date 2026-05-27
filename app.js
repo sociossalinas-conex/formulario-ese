@@ -2374,3 +2374,113 @@ window.completeEmailField = (inputId, domain) => {
   }
 };
 
+// ==========================================================================
+// ASISTENTE DE CONCORDANCIA DE GÉNERO Y FINADOS EN DATOS FAMILIARES
+// ==========================================================================
+
+const femaleNamesList = [
+  'MARIA', 'MA', 'ROSA', 'FELISA', 'NAYELI', 'CAROLINA', 'GUADALUPE', 'LUPE', 
+  'ANA', 'CARMEN', 'BEATRIZ', 'LUZ', 'RUTH', 'ELIZABETH', 'ISABEL', 'JUANA', 
+  'MARTHA', 'PATRICIA', 'LETICIA', 'GABRIELA', 'VERONICA', 'SILVIA', 'MARGARITA', 
+  'TERESA', 'YOLANDA', 'SARA', 'SOFIA', 'ALEJANDRA', 'DANIELA', 'MONICA', 'ESTHELA', 
+  'ELENA', 'ADRIANA', 'CLARA', 'LAURA', 'DIANA', 'CLAUDIA', 'ALICIA', 'REBECA',
+  'ESTELA', 'CECILIA', 'JOSEFINA', 'DOLORES', 'ANGELA', 'YESSICA', 'JESSICA',
+  'SANDRA', 'PATRICIA', 'MONTSERRAT', 'GLORIA', 'LORENA', 'CARMEN', 'SILVIA'
+];
+
+const maleNamesList = [
+  'JOSE', 'JOSEP', 'PEPE', 'JUAN', 'LUIS', 'CARLOS', 'MIGUEL', 'MANUEL', 'JAVIER', 
+  'PEDRO', 'JORGE', 'FRANCISCO', 'ANTONIO', 'TOÑO', 'ALBERTO', 'TOMAS', 'EMILIANO', 
+  'ALEJANDRO', 'RICARDO', 'DANIEL', 'FERNANDO', 'ROBERTO', 'EDUARDO', 'HECTOR', 
+  'ARTURO', 'RAUL', 'ENRIQUE', 'OSCAR', 'RAMON', 'SERGIO', 'ANDRES', 'FELIPE', 
+  'HUGO', 'CESAR', 'JAIME', 'JULIO', 'VICTOR', 'ADOLFO', 'GUSTAVO', 'ALFREDO',
+  'RAFAEL', 'RODRIGO', 'GERARDO', 'SERGIO', 'OSCAR', 'MARIO', 'ENRIQUE', 'IGNACIO'
+];
+
+function guessGenderFromName(name) {
+  if (!name) return null;
+  const firstName = name.trim().split(' ')[0].toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  
+  if (femaleNamesList.includes(firstName)) return 'Femenino';
+  if (maleNamesList.includes(firstName)) return 'Masculino';
+  
+  // Regla por terminación estándar
+  if (firstName.endsWith('A') && firstName !== 'JOSHUA') return 'Femenino';
+  if (firstName.endsWith('O') || firstName.endsWith('OR') || firstName.endsWith('EL') || firstName.endsWith('AN') || firstName.endsWith('US')) return 'Masculino';
+  
+  return null;
+}
+
+// Escuchar cambios para aplicar autocompletado de concordancia de género e inactividad por padres finados
+document.addEventListener('input', (e) => {
+  const target = e.target;
+  if (!target.matches('.form-input, .form-textarea, .form-select')) return;
+  
+  const id = target.id;
+  const val = target.value;
+
+  // --- 1. CONCORDANCIA DE GÉNERO AUTOMÁTICA EN PARENTESCO ---
+  // Si se escribe en un campo de nombre de familiar (ej. ref_eco_nombre_1, fam_nombre_2, etc.)
+  if (id.includes('nombre') && (id.includes('ref_eco') || id.includes('fam') || id.includes('familiar'))) {
+    const gender = guessGenderFromName(val);
+    if (gender) {
+      // Intentar encontrar el campo parentesco correspondiente en la misma fila/ID
+      // Los IDs suelen ser: field-ref_eco_nombre_1 -> correspondientes a field-ref_eco_parentesco_1
+      const parentescoId = id.replace('nombre', 'parentesco');
+      const parentescoField = document.getElementById(parentescoId);
+      if (parentescoField) {
+        const curParentescoVal = parentescoField.value.trim().toLowerCase();
+        
+        if (gender === 'Femenino') {
+          if (curParentescoVal.startsWith('herman') || curParentescoVal === 'hermano/a') {
+            parentescoField.value = 'Hermana';
+          } else if (curParentescoVal.startsWith('hij') || curParentescoVal === 'hijo/a') {
+            parentescoField.value = 'Hija';
+          } else if (curParentescoVal.startsWith('espos') || curParentescoVal === 'conyuge') {
+            parentescoField.value = 'Esposa';
+          }
+        } else if (gender === 'Masculino') {
+          if (curParentescoVal.startsWith('herman') || curParentescoVal === 'hermano/a') {
+            parentescoField.value = 'Hermano';
+          } else if (curParentescoVal.startsWith('hij') || curParentescoVal === 'hijo/a') {
+            parentescoField.value = 'Hijo';
+          } else if (curParentescoVal.startsWith('espos') || curParentescoVal === 'conyuge') {
+            parentescoField.value = 'Esposo';
+          }
+        }
+        parentescoField.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    }
+  }
+
+  // --- 2. CONTROL DE PADRES FINADOS (FALLECIDOS) ---
+  // Si escriben palabras clave de fallecimiento en el nombre, edad u ocupación del padre/madre
+  if (id.includes('padre') || id.includes('madre') || id.includes('papa') || id.includes('mama')) {
+    const prefix = id.includes('padre') || id.includes('papa') ? 'padre' : 'madre';
+    const relatedInputs = Array.from(document.querySelectorAll(`input[id*="${prefix}"], select[id*="${prefix}"]`));
+    
+    // Comprobar si alguno de los campos relacionados contiene palabras que delaten fallecimiento
+    const isFinado = relatedInputs.some(input => {
+      const v = input.value.trim().toLowerCase();
+      return v.includes('finad') || v.includes('fallecid') || v.includes('difunt') || v.includes('muert') || v === 'no' || v === 'n/a';
+    });
+
+    relatedInputs.forEach(input => {
+      // No quitarle required al campo de nombre, ese siempre se llena
+      if (input.id.includes('nombre') || input.id.includes('parentesco')) return;
+      
+      if (isFinado) {
+        // Guardar original si no se ha guardado antes
+        if (input.hasAttribute('required') && !input.hasAttribute('data-was-required')) {
+          input.setAttribute('data-was-required', 'true');
+        }
+        input.removeAttribute('required');
+      } else {
+        // Si no está finado, y originalmente era requerido, restaurar
+        if (input.getAttribute('data-was-required') === 'true') {
+          input.setAttribute('required', 'true');
+        }
+      }
+    });
+  }
+});
