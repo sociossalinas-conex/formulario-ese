@@ -540,6 +540,32 @@ async function buildDynamicForm(template) {
       field.defaultToday = true;
     }
   });
+  
+  // Inyectar campos globales faltantes en el capturador
+  globalRules.forEach(rule => {
+    if (rule.is_global) {
+      const exists = schema.some(f => f.id === rule.field_id);
+      if (!exists) {
+        const cleanLabel = rule.field_id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        const validSection = (rule.section && typeof rule.section === 'string' && rule.section.startsWith('sec-')) ? rule.section : classifyFieldSection(rule.field_id);
+        schema.push({
+          id: rule.field_id,
+          label: cleanLabel,
+          tipo: rule.tipo,
+          section: validSection,
+          placeholder: rule.placeholder || '',
+          ayuda: rule.ayuda || '',
+          dependsOn: rule.depends_on || '',
+          dependsOnValue: rule.depends_on_value || '',
+          linkFrom: rule.link_from || '',
+          opciones: rule.opciones || [],
+          defaultToday: rule.default_today || false,
+          requerido: rule.requerido || false,
+          transform: rule.transform || 'none'
+        });
+      }
+    }
+  });
 
   // 4. Ordenar lógicamente la sección de Datos Personales
   const fieldOrderPriority = [
@@ -844,6 +870,15 @@ async function buildDynamicForm(template) {
 
   // Setup Calculations and Autocompletes trigger dynamically
   setupCustomAutocompleteAndCalculations();
+
+  // Trigger initial visibility conditions and linkings on form load
+  setTimeout(() => {
+    const allFormInputs = formContainer.querySelectorAll('.form-input, .form-select, .form-textarea');
+    allFormInputs.forEach(input => {
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+  }, 200);
 
   // Lógica de género y estado civil dinámico
   const bindGenderAndMaritalStatus = () => {
@@ -1656,31 +1691,88 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('input', handleDynamicFields);
   document.addEventListener('change', handleDynamicFields);
 
-  // Validar y Formatear Números Telefónicos (10 dígitos, sin espacios, solo números)
+  // Validar y Formatear Números Telefónicos (10 dígitos, solo números, o bypass para "No tiene", "No cuenta", "No", "N/A")
+  const bypassValues = ['no tiene', 'no cuenta', 'no', 'n/a', 'na'];
+
+  function checkDuplicatePhoneNumbers() {
+    const phoneInputs = Array.from(document.querySelectorAll('input[type="tel"]'));
+    // 1. Limpiar validez anterior para duplicados primero
+    phoneInputs.forEach(input => {
+      if (input.validationMessage === "Los números telefónicos no se pueden duplicar.") {
+        input.setCustomValidity("");
+      }
+    });
+
+    // 2. Agrupar valores para encontrar duplicados
+    const valueMap = {};
+    phoneInputs.forEach(input => {
+      const val = input.value.trim().toLowerCase();
+      // Ignorar si está vacío o si es un valor de bypass
+      if (val !== '' && !bypassValues.includes(val)) {
+        if (!valueMap[val]) {
+          valueMap[val] = [];
+        }
+        valueMap[val].push(input);
+      }
+    });
+
+    // 3. Marcar los duplicados
+    Object.keys(valueMap).forEach(val => {
+      const inputs = valueMap[val];
+      if (inputs.length > 1) {
+        inputs.forEach(input => {
+          input.setCustomValidity("Los números telefónicos no se pueden duplicar.");
+        });
+      }
+    });
+  }
+
   document.addEventListener('input', (e) => {
     if (e.target.matches('input[type="tel"]')) {
-      const start = e.target.selectionStart;
-      const originalLen = e.target.value.length;
-      e.target.value = e.target.value.replace(/\D/g, '');
-      const newLen = e.target.value.length;
-      e.target.setSelectionRange(start - (originalLen - newLen), start - (originalLen - newLen));
+      const val = e.target.value.trim().toLowerCase();
       
-      if (e.target.value.length > 0 && e.target.value.length !== 10) {
-        e.target.setCustomValidity("El número telefónico debe tener exactamente 10 dígitos.");
+      // Si el valor es vacío o es un prefijo de algún valor de bypass, permitimos letras
+      const isBypassPrefix = bypassValues.some(b => b.startsWith(val)) || val === '';
+      
+      if (isBypassPrefix) {
+        if (bypassValues.includes(val) || val === '') {
+          e.target.setCustomValidity("");
+        } else {
+          e.target.setCustomValidity("El número telefónico debe tener exactamente 10 dígitos o ser 'No tiene', 'No cuenta', 'No' o 'N/A'.");
+        }
       } else {
-        e.target.setCustomValidity("");
+        const start = e.target.selectionStart;
+        const originalLen = e.target.value.length;
+        e.target.value = e.target.value.replace(/\D/g, '');
+        const newLen = e.target.value.length;
+        e.target.setSelectionRange(start - (originalLen - newLen), start - (originalLen - newLen));
+        
+        if (e.target.value.length > 0 && e.target.value.length !== 10) {
+          e.target.setCustomValidity("El número telefónico debe tener exactamente 10 dígitos.");
+        } else {
+          e.target.setCustomValidity("");
+        }
       }
+      
+      checkDuplicatePhoneNumbers();
     }
   });
 
   document.addEventListener('blur', (e) => {
     if (e.target.matches('input[type="tel"]')) {
-      if (e.target.value.length > 0 && e.target.value.length !== 10) {
-        e.target.setCustomValidity("El número telefónico debe tener exactamente 10 dígitos.");
-        try { e.target.reportValidity(); } catch(err) {}
-      } else {
+      const val = e.target.value.trim().toLowerCase();
+      if (bypassValues.includes(val) || val === '') {
         e.target.setCustomValidity("");
+      } else {
+        e.target.value = e.target.value.replace(/\D/g, '');
+        if (e.target.value.length > 0 && e.target.value.length !== 10) {
+          e.target.setCustomValidity("El número telefónico debe tener exactamente 10 dígitos o ser 'No tiene', 'No cuenta', 'No' o 'N/A'.");
+          try { e.target.reportValidity(); } catch(err) {}
+        } else {
+          e.target.setCustomValidity("");
+        }
       }
+      checkDuplicatePhoneNumbers();
     }
   }, true);
 
@@ -1732,6 +1824,29 @@ function toTitleCase(str) {
   }).join(' ');
 }
 
+function parseDateString(dateStr) {
+  if (!dateStr) return null;
+  // Standard ISO YYYY-MM-DD
+  let match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (match) {
+    return {
+      year: parseInt(match[1], 10),
+      month: parseInt(match[2], 10),
+      day: parseInt(match[3], 10)
+    };
+  }
+  // Spanish DD/MM/YYYY or DD-MM-YYYY
+  match = dateStr.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+  if (match) {
+    return {
+      year: parseInt(match[3], 10),
+      month: parseInt(match[2], 10),
+      day: parseInt(match[1], 10)
+    };
+  }
+  return null;
+}
+
 // ==========================================================================
 // MOTOR DE CÁLCULO DE CURP, RFC Y EDAD MEXICANOS (CLIENT-SIDE PORT)
 // ==========================================================================
@@ -1769,10 +1884,11 @@ const MexicanCalculationsEngine = {
       curp = this.filterBadWords(curp);
       
       // 4. Fecha de nacimiento (YYMMDD)
-      var d = new Date(fechaNac);
-      var yy = d.getUTCFullYear().toString().substring(2, 4);
-      var mm = ('0' + (d.getUTCMonth() + 1)).slice(-2);
-      var dd = ('0' + d.getUTCDate()).slice(-2);
+      var parsed = parseDateString(fechaNac);
+      if (!parsed) return '';
+      var yy = parsed.year.toString().substring(2, 4);
+      var mm = ('0' + parsed.month).slice(-2);
+      var dd = ('0' + parsed.day).slice(-2);
       curp += yy + mm + dd;
       
       // 5. Sexo (H o M)
@@ -1789,8 +1905,7 @@ const MexicanCalculationsEngine = {
       curp += this.getConsonanteInterna(nombre);
       
       // 8. Homoclave (letra para >= 2000, dígito para < 2000)
-      var year = d.getUTCFullYear();
-      curp += (year >= 2000) ? 'A' : '0';
+      curp += (parsed.year >= 2000) ? 'A' : '0';
       
       // 9. Dígito verificador
       curp += '1'; 
@@ -2001,15 +2116,27 @@ function triggerMexicanCalculations() {
   const rfcField = document.querySelector('input[id*="rfc"]');
   const ageField = document.querySelector('input[id*="edad"]');
   
-  if (!dobInput || !dobInput.value) return;
+  if (!dobInput || !dobInput.value) {
+    if (ageField) {
+      ageField.value = '';
+      ageField.dispatchEvent(new Event('input', { bubbles: true }));
+      ageField.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    return;
+  }
   
   // 1. Edad
   const dobVal = dobInput.value;
-  const dob = new Date(dobVal);
+  const dobParsed = parseDateString(dobVal);
   const today = new Date();
-  let calcAge = today.getFullYear() - dob.getFullYear();
-  const monthDiff = today.getMonth() - dob.getMonth();
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
+  
+  if (!dobParsed || dobParsed.year < 1900 || dobParsed.year > today.getFullYear()) {
+    return; // Ignorar fechas parciales/inválidas mientras escribe
+  }
+  
+  let calcAge = today.getFullYear() - dobParsed.year;
+  const monthDiff = today.getMonth() - (dobParsed.month - 1);
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dobParsed.day)) {
     calcAge--;
   }
   if (calcAge >= 0 && ageField) {
