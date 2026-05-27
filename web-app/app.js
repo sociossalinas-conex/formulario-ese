@@ -1297,10 +1297,15 @@ async function _saveMappingForm() {
       
       // Intentar actualizar en DB
       if (client) {
-        await client
+        const { error } = await client
           .from('client_mappings')
           .update({ commercial_brand: commercialBrand, config: configObj })
           .eq('id', idVal);
+          
+        if (error) {
+          console.error("Error actualizando en Supabase:", error);
+          alert("Error guardando en la base de datos (Supabase). Verifica permisos o RLS: " + error.message);
+        }
       }
         
     } else {
@@ -1310,9 +1315,14 @@ async function _saveMappingForm() {
       
       // Intentar insertar en DB
       if (client) {
-        await client
+        const { error } = await client
           .from('client_mappings')
           .insert(payload);
+          
+        if (error) {
+          console.error("Error insertando en Supabase:", error);
+          alert("Error insertando en la base de datos (Supabase). Verifica permisos o RLS: " + error.message);
+        }
       }
     }
   } catch (err) {
