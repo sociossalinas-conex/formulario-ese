@@ -278,20 +278,20 @@
               <div class="card-title-bar">
                 <div class="bar-title">
                   <i data-lucide="git-compare"></i>
-                  <h3>Mapeo de Clientes a Marcas Comerciales</h3>
+                  <h3>Mapeo de Empresas a Marcas Comerciales</h3>
                 </div>
                 <button id="btn-open-mapping-modal" class="btn btn-secondary btn-sm">
                   <i data-lucide="plus"></i> Nuevo Mapeo
                 </button>
               </div>
-              <p class="card-desc">Asigne cada cliente a su respectivo nombre comercial para el direccionamiento y marca al finalizar los reportes.</p>
+              <p class="card-desc">Asigne cada empresa a su respectivo nombre comercial para el direccionamiento y marca al finalizar los reportes.</p>
 
               <!-- Tabla de Mapeos -->
               <div class="table-responsive">
                 <table class="premium-table">
                   <thead>
                     <tr>
-                      <th>Cliente / Empresa</th>
+                      <th>Empresa</th>
                       <th>Marca Comercial Asociada</th>
                       <th class="text-right">Acciones</th>
                     </tr>
@@ -299,7 +299,7 @@
                   <tbody id="mappings-table-body">
                     <!-- Datos cargados dinámicamente -->
                     <tr>
-                      <td colspan="3" class="text-center text-muted py-4">No hay mapeos de clientes registrados.</td>
+                      <td colspan="3" class="text-center text-muted py-4">No hay mapeos de empresas registradas.</td>
                     </tr>
                   </tbody>
                 </table>
@@ -379,7 +379,7 @@
             <div class="input-wrapper">
               <i data-lucide="user" class="input-icon"></i>
               <input type="text" id="mapping-client-name" class="form-input" placeholder=" " required autocomplete="off">
-              <label for="mapping-client-name" class="form-label">Nombre del Cliente / Empresa</label>
+              <label for="mapping-client-name" class="form-label">Nombre de la Empresa</label>
             </div>
           </div>
 

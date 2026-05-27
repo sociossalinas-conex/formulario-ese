@@ -392,7 +392,7 @@ body {
   border-radius: var(--border-radius-md);
   padding: 14px 14px 14px 44px;
   font-size: 0.95rem;
-  color: var(--color-text-main);
+  color: #000000;
   outline: none;
   transition: var(--transition-smooth);
 }
@@ -649,7 +649,7 @@ body {
   border-radius: var(--border-radius-md);
   padding: 14px 14px 14px 44px;
   font-size: 0.95rem;
-  color: var(--color-text-main);
+  color: #000000;
   outline: none;
   appearance: none; /* Quitar flecha nativa */
   -webkit-appearance: none;
@@ -682,7 +682,7 @@ body {
   border-radius: var(--border-radius-md);
   padding: 14px;
   font-size: 0.95rem;
-  color: var(--color-text-main);
+  color: #000000;
   outline: none;
   min-height: 100px;
   resize: vertical;
