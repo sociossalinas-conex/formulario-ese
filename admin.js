@@ -845,18 +845,23 @@ function renderCapturesTable(records) {
     
     let docBtn = '';
     if (docUrl) {
+      // Cuando ya existe un docUrl: mostrar Doc Final + botón Regenerar (para corregir si el template fue incorrecto)
       docBtn = `
-        <a href="${docUrl}" target="_blank" class="btn" style="padding: 5px 10px; font-size: 0.72rem; background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.25); color: #10b981; display: inline-flex; align-items: center; gap: 4px; text-decoration: none; font-weight: 500;" title="Abrir y descargar el documento final con llaves sustituidas">
+        <a href="${docUrl}" target="_blank" class="btn" style="padding: 5px 10px; font-size: 0.72rem; background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.25); color: #10b981; display: inline-flex; align-items: center; gap: 4px; text-decoration: none; font-weight: 500;" title="Abrir el documento final">
           <i data-lucide="file-text" style="width: 12px; height: 12px;"></i> Doc Final
         </a>
+        <button id="btn-regen-doc-${record.id}" class="btn" style="padding: 5px 10px; font-size: 0.72rem; background: rgba(245, 158, 11, 0.08); border-color: rgba(245, 158, 11, 0.22); color: #d97706; display: inline-flex; align-items: center; gap: 4px; font-weight: 500; cursor: pointer;" onclick="linkDocForRecord('${record.id}')" title="Regenerar documento con la plantilla correcta del cliente (borra el anterior)">
+          <i data-lucide="refresh-cw" style="width: 12px; height: 12px;"></i> Regenerar
+        </button>
       `;
     } else {
       docBtn = `
-        <button id="btn-link-doc-${record.id}" class="btn" style="padding: 5px 10px; font-size: 0.72rem; background: rgba(37, 99, 235, 0.05); border-color: rgba(37, 99, 235, 0.15); color: var(--color-primary); display: inline-flex; align-items: center; gap: 4px; font-weight: 500; cursor: pointer;" onclick="linkDocForRecord('${record.id}')" title="Buscar y vincular el documento en Google Drive">
+        <button id="btn-link-doc-${record.id}" class="btn" style="padding: 5px 10px; font-size: 0.72rem; background: rgba(37, 99, 235, 0.05); border-color: rgba(37, 99, 235, 0.15); color: var(--color-primary); display: inline-flex; align-items: center; gap: 4px; font-weight: 500; cursor: pointer;" onclick="linkDocForRecord('${record.id}')" title="Generar el documento en Google Drive con la plantilla del cliente">
           <i data-lucide="link-2" style="width: 12px; height: 12px;"></i> Vincular Doc
         </button>
       `;
     }
+
     
     return `
       <tr>

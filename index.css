@@ -1226,6 +1226,83 @@ body {
   display: flex;
 }
 
+/* Modal card: siempre fondo blanco, texto oscuro, sin importar el tema */
+.modal-card {
+  background: #ffffff !important;
+  border: 1px solid rgba(0, 0, 0, 0.1) !important;
+  border-radius: 20px;
+  padding: 32px 28px;
+  width: 100%;
+  max-width: 520px;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+  overflow-y: auto;
+  /* Forzar colores claros para todo el contenido del modal */
+  --bg-card: #ffffff;
+  --color-text-main: #0f172a;
+  --color-text-muted: #475569;
+  --color-text-dark: #334155;
+  --border-card: rgba(0, 0, 0, 0.08);
+  color: #0f172a;
+}
+
+/* Todos los textos dentro del modal en modo oscuro */
+.modal-card h3,
+.modal-card h4,
+.modal-card label,
+.modal-card p,
+.modal-card input,
+.modal-card select,
+.modal-card .form-label {
+  color: #0f172a !important;
+}
+
+/* Etiquetas de texto secundario en el modal */
+.modal-card p,
+.modal-card small {
+  color: #475569 !important;
+}
+
+/* Inputs dentro del modal: fondo blanco claro */
+.modal-card .form-input,
+.modal-card .form-select {
+  background: #f8fafc !important;
+  color: #0f172a !important;
+  border-color: rgba(0, 0, 0, 0.12) !important;
+}
+
+.modal-card .form-input::placeholder,
+.modal-card .form-select::placeholder {
+  color: #94a3b8 !important;
+}
+
+/* Labels flotantes del modal */
+.modal-card .form-label {
+  background: transparent !important;
+  color: #64748b !important;
+}
+
+.modal-card .input-icon {
+  color: #94a3b8 !important;
+}
+
+/* Checkbox labels del modal */
+.modal-card .card-inner-field {
+  background: #f8fafc;
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  border-radius: 12px;
+}
+
+/* Code snippet dentro del modal */
+.modal-card code {
+  background: rgba(0, 0, 0, 0.06) !important;
+  color: #334155 !important;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
 .form-card {
   background: var(--bg-card);
   backdrop-filter: blur(16px);
@@ -1250,25 +1327,26 @@ body {
 .modal-header h3 {
   font-size: 1.15rem;
   font-weight: 700;
+  color: #0f172a !important;
 }
 
 .btn-close-modal {
-  background: none;
+  background: rgba(0, 0, 0, 0.05);
   border: none;
-  color: var(--color-text-muted);
+  color: #64748b;
   cursor: pointer;
   display: flex;
   justify-content: center;
   align-items: center;
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   transition: var(--transition-smooth);
 }
 
 .btn-close-modal:hover {
-  color: var(--color-text-main);
-  background: rgba(255, 255, 255, 0.05);
+  color: #0f172a;
+  background: rgba(0, 0, 0, 0.1);
 }
 
 .modal-form {
@@ -1287,6 +1365,7 @@ body {
 .modal-footer-actions .btn {
   width: auto;
 }
+
 
 /* ==========================================================================
    MEDIA QUERIES - ESCALABILIDAD PREMIUM A ESCRITORIO (ADMIN LAYOUT)
