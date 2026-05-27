@@ -841,17 +841,40 @@ function renderCapturesTable(records) {
     const answers = record.payload ? record.payload.answers : null;
     const dataKeysCount = answers ? Object.keys(answers).length : 0;
     
+    const docUrl = record.payload && record.payload.docUrl ? record.payload.docUrl : null;
+    
+    let docBtn = '';
+    if (docUrl) {
+      docBtn = `
+        <a href="${docUrl}" target="_blank" class="btn" style="padding: 5px 10px; font-size: 0.72rem; background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.25); color: #10b981; display: inline-flex; align-items: center; gap: 4px; text-decoration: none; font-weight: 500;" title="Abrir y descargar el documento final con llaves sustituidas">
+          <i data-lucide="file-text" style="width: 12px; height: 12px;"></i> Doc Final
+        </a>
+      `;
+    } else {
+      docBtn = `
+        <button id="btn-link-doc-${record.id}" class="btn" style="padding: 5px 10px; font-size: 0.72rem; background: rgba(37, 99, 235, 0.05); border-color: rgba(37, 99, 235, 0.15); color: var(--color-primary); display: inline-flex; align-items: center; gap: 4px; font-weight: 500; cursor: pointer;" onclick="linkDocForRecord('${record.id}')" title="Buscar y vincular el documento en Google Drive">
+          <i data-lucide="link-2" style="width: 12px; height: 12px;"></i> Vincular Doc
+        </button>
+      `;
+    }
+    
     return `
       <tr>
         <td style="font-weight: 500;">${dateStr}</td>
         <td style="font-weight: 600; color: var(--color-primary);">${escapeHTML(candidateName)}</td>
         <td><span class="company-badge" style="background: rgba(37, 99, 235, 0.08); color: var(--color-primary); border: 1px solid rgba(37, 99, 235, 0.15);">${escapeHTML(record.client_name || 'N/A')}</span></td>
         <td><span class="commercial-badge" style="background: rgba(16, 185, 129, 0.08); color: var(--color-accent); border: 1px solid rgba(16, 185, 129, 0.15);">${escapeHTML(brand)}</span></td>
-        <td style="font-family: monospace; font-size: 0.85rem; color: var(--color-text-muted);">${dataKeysCount} respuestas capturadas</td>
-        <td style="text-align: center;">
-          <button class="btn" style="padding: 4px 10px; font-size: 0.75rem; background: rgba(37, 99, 235, 0.1); border-color: rgba(37, 99, 235, 0.2); color: var(--color-primary); cursor: pointer;" onclick="exportSingleCaptureToCSV('${record.id}')">
-            <i data-lucide="download" style="width: 12px; height: 12px; display: inline; vertical-align: middle; margin-right: 4px;"></i> Exportar
-          </button>
+        <td style="font-family: monospace; font-size: 0.85rem; color: var(--color-text-muted);">${dataKeysCount} respuestas</td>
+        <td style="overflow: visible; max-width: none; text-overflow: clip;">
+          <div style="display: flex; gap: 6px; align-items: center; justify-content: center;">
+            <button class="btn" style="padding: 5px 10px; font-size: 0.72rem; background: rgba(37, 99, 235, 0.1); border-color: rgba(37, 99, 235, 0.2); color: var(--color-primary); display: inline-flex; align-items: center; gap: 4px; cursor: pointer; font-weight: 500;" onclick="exportSingleCaptureToCSV('${record.id}')" title="Descargar respuestas en CSV">
+              <i data-lucide="download" style="width: 12px; height: 12px;"></i> CSV Info
+            </button>
+            ${docBtn}
+            <button class="btn" style="padding: 5px 10px; font-size: 0.72rem; background: rgba(239, 68, 68, 0.08); border-color: rgba(239, 68, 68, 0.18); color: #ef4444; display: inline-flex; align-items: center; gap: 4px; cursor: pointer; font-weight: 500;" onclick="deleteCaptureRecord('${record.id}')" title="Eliminar este estudio de la base de datos">
+              <i data-lucide="trash-2" style="width: 12px; height: 12px;"></i> Eliminar
+            </button>
+          </div>
         </td>
       </tr>
     `;
@@ -996,6 +1019,169 @@ function escapeHTML(str) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
+}
+
+// Vincular/Generar en vivo el Google Doc para un registro que carece de él
+window.linkDocForRecord = async function(id) {
+  const btn = document.getElementById(`btn-link-doc-${id}`);
+  const record = dbCaptures.find(r => r.id === id);
+  if (!record) return;
+  
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<i data-lucide="loader-2" class="loading-spinner" style="width: 12px; height: 12px; display: inline-block; animation: spin 1s linear infinite;"></i> Vinculando...`;
+    lucide.createIcons();
+  }
+  
+  const candidateName = record.payload ? record.payload.candidate_name : 'Candidato';
+  const clientName = record.client_name;
+  const answers = record.payload ? record.payload.answers : {};
+  
+  console.log(`Iniciando vinculación de documento para ${candidateName} (${clientName})...`);
+  
+  try {
+    // 1. Obtener la URL del webhook desde los mapeos de Supabase
+    const { data: mappings, error: mappingError } = await supabaseClient
+      .from('client_mappings')
+      .select('*')
+      .ilike('client_name', clientName)
+      .limit(1);
+      
+    if (mappingError || !mappings || mappings.length === 0) {
+      alert(`No se encontró una configuración de Apps Script asociada al cliente "${clientName}". Por favor, agrega o revisa el mapeo de este cliente en el Panel.`);
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = `<i data-lucide="link-2" style="width: 12px; height: 12px;"></i> Vincular Doc`;
+        lucide.createIcons();
+      }
+      return;
+    }
+    
+    const mappingConfig = mappings[0].config || {};
+    if (!mappingConfig.appsScriptUrl) {
+      alert(`El cliente "${clientName}" está configurado, pero no cuenta con un URL de Google Apps Script. Por favor configúralo en el área de mapeos.`);
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = `<i data-lucide="link-2" style="width: 12px; height: 12px;"></i> Vincular Doc`;
+        lucide.createIcons();
+      }
+      return;
+    }
+    
+    // 2. Disparar el webhook de rellenado
+    console.log("Enviando webhook de vinculación a Google Apps Script...", mappingConfig.appsScriptUrl);
+    const response = await fetch(mappingConfig.appsScriptUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/plain;charset=utf-8'
+      },
+      body: JSON.stringify({
+        action: 'fillDoc',
+        clientName: clientName,
+        candidateName: candidateName,
+        answers: answers
+      })
+    });
+    
+    const text = await response.text();
+    let resData = null;
+    try {
+      resData = JSON.parse(text);
+    } catch (e) {
+      console.error("Error al parsear respuesta JSON de Apps Script:", e);
+    }
+    
+    if (resData && resData.success) {
+      const docUrl = resData.docUrl;
+      const docName = resData.docName;
+      
+      // 3. Actualizar Supabase con el enlace del documento
+      const updatedPayload = {
+        ...record.payload,
+        docUrl: docUrl,
+        docName: docName
+      };
+      
+      const { error: updateError } = await supabaseClient
+        .from('socioeconomic_captures')
+        .update({ payload: updatedPayload })
+        .eq('id', id);
+        
+      if (updateError) {
+        console.error("Error al guardar enlace en Supabase:", updateError);
+        alert(`¡Documento vinculado en Drive, pero no se pudo actualizar Supabase!\n\nDocs URL: ${docUrl}`);
+      } else {
+        showToast(`Documento "${docName}" vinculado con éxito.`);
+      }
+      
+      // 4. Recargar los datos para refrescar la fila con el botón verde
+      await loadDatabaseCaptures();
+    } else {
+      const errorMsg = resData ? resData.error : 'Respuesta inválida del servidor.';
+      alert(`⚠️ Problema al rellenar/vincular el documento en Google Drive:\n\n${errorMsg}\n\nPor favor, verifica las carpetas y la plantilla del cliente en Drive.`);
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = `<i data-lucide="link-2" style="width: 12px; height: 12px;"></i> Vincular Doc`;
+        lucide.createIcons();
+      }
+    }
+  } catch (err) {
+    console.error("Excepción en linkDocForRecord:", err);
+    alert(`Error de conexión al intentar vincular con Google Apps Script: ${err.message}`);
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `<i data-lucide="link-2" style="width: 12px; height: 12px;"></i> Vincular Doc`;
+      lucide.createIcons();
+    }
+  }
+};
+
+// Eliminar permanentemente un estudio socioeconómico de la base de datos
+window.deleteCaptureRecord = async function(id) {
+  const record = dbCaptures.find(r => r.id === id);
+  if (!record) return;
+  
+  const candidateName = record.payload ? record.payload.candidate_name : 'este candidato';
+  const confirmDelete = confirm(`¿Está seguro de que desea eliminar permanentemente el estudio socioeconómico de "${candidateName}"?\n\nEsta acción eliminará el registro de la base de datos de forma irreversible.`);
+  
+  if (!confirmDelete) return;
+  
+  try {
+    const { error } = await supabaseClient
+      .from('socioeconomic_captures')
+      .delete()
+      .eq('id', id);
+      
+    if (error) {
+      alert(`Error al eliminar el registro: ${error.message}`);
+      return;
+    }
+    
+    // Mostrar mensaje toast dinámico
+    showToast(`Estudio de "${candidateName}" eliminado con éxito.`);
+    
+    // Recargar los registros en la tabla
+    await loadDatabaseCaptures();
+  } catch (err) {
+    console.error("Excepción al eliminar registro:", err);
+    alert(`Ocurrió una excepción al eliminar: ${err.message}`);
+  }
+};
+
+// Función reutilizable para mostrar notificaciones toast dinámicas
+function showToast(message, isSuccess = true) {
+  const toast = document.getElementById('toast');
+  if (toast) {
+    const origContent = toast.innerHTML;
+    const icon = isSuccess ? 'check-circle' : 'alert-circle';
+    toast.innerHTML = `<i data-lucide="${icon}"></i> ${message}`;
+    lucide.createIcons();
+    toast.classList.add('show');
+    setTimeout(() => {
+      toast.classList.remove('show');
+      setTimeout(() => { toast.innerHTML = origContent; lucide.createIcons(); }, 300);
+    }, 3000);
+  }
 }
 
 // Init

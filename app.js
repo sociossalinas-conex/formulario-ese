@@ -742,7 +742,7 @@ function buildDynamicForm(template) {
     nextBtn.className = 'btn btn-primary';
     
     if (idx === activeWizardSections.length - 1) {
-      nextBtn.innerText = 'Guardar Captura Completa';
+      nextBtn.innerText = 'Guardar Captura';
       nextBtn.onclick = submitCapturedForm;
     } else {
       nextBtn.innerText = 'Siguiente →';
@@ -1092,10 +1092,53 @@ async function submitCapturedForm(e) {
       return;
     }
 
-    const { data, error } = await client
-      .from('socioeconomic_captures')
-      .insert(payload)
-      .select();
+    // Verificar duplicidad antes de guardar para evitar múltiples registros del mismo candidato
+    console.log("Verificando si ya existe una captura previa para evitar duplicados...");
+    let existingRecordId = null;
+    let existingDocUrl = null;
+    let existingDocName = null;
+    
+    try {
+      const { data: existingData, error: searchError } = await client
+        .from('socioeconomic_captures')
+        .select('id, payload')
+        .eq('client_name', payload.client_name)
+        .ilike('payload->>candidate_name', candidateName)
+        .limit(1);
+        
+      if (!searchError && existingData && existingData.length > 0) {
+        existingRecordId = existingData[0].id;
+        existingDocUrl = existingData[0].payload && existingData[0].payload.docUrl ? existingData[0].payload.docUrl : null;
+        existingDocName = existingData[0].payload && existingData[0].payload.docName ? existingData[0].payload.docName : null;
+        
+        if (existingDocUrl) {
+          payload.payload.docUrl = existingDocUrl;
+        }
+        if (existingDocName) {
+          payload.payload.docName = existingDocName;
+        }
+      }
+    } catch (searchErr) {
+      console.warn("No se pudo comprobar duplicados, procediendo con inserción estándar:", searchErr);
+    }
+
+    let saveResult;
+    if (existingRecordId) {
+      console.log(`Registro duplicado detectado (ID: ${existingRecordId}). Actualizando información existente...`);
+      saveResult = await client
+        .from('socioeconomic_captures')
+        .update(payload)
+        .eq('id', existingRecordId)
+        .select();
+    } else {
+      console.log("No se detectó registro duplicado. Insertando nueva captura...");
+      saveResult = await client
+        .from('socioeconomic_captures')
+        .insert(payload)
+        .select();
+    }
+
+    const { data, error } = saveResult;
 
     if (error) {
       console.error(error);
@@ -1149,6 +1192,24 @@ async function submitCapturedForm(e) {
         }
         
         if (resData && resData.success) {
+          const recordToUpdateId = data[0].id;
+          const updatedPayload = {
+            ...payload.payload,
+            docUrl: resData.docUrl,
+            docName: resData.docName
+          };
+          
+          console.log(`Webhook exitoso. Guardando docUrl: "${resData.docUrl}" en el registro ${recordToUpdateId}`);
+          
+          const { error: updateError } = await client
+            .from('socioeconomic_captures')
+            .update({ payload: updatedPayload })
+            .eq('id', recordToUpdateId);
+            
+          if (updateError) {
+            console.error("Error al actualizar la captura con el link del documento:", updateError);
+          }
+
           if (resData.createdNew) {
             alert(`¡Estudio guardado con éxito!\n\n⚠️ No se encontró ningún Docs editable en la carpeta del candidato, por lo que creamos una copia de tu plantilla base en su lugar:\n\n"${resData.docName}"`);
           } else {
