@@ -1109,6 +1109,22 @@ function setupProgressTracking(schema) {
   });
 }
 
+// Redirecciona según la marca comercial resuelta al finalizar el guardado con éxito
+function redirectToBrandUrl() {
+  const brand = (state.resolvedBrand || "").toLowerCase();
+  console.log(`Redireccionando según marca comercial resuelta: "${state.resolvedBrand}"`);
+  if (brand.includes("nomipago")) {
+    window.location.href = "https://nomipago.mx/";
+  } else if (brand.includes("conexion") || brand.includes("conexión")) {
+    window.location.href = "https://conexion-ejecutiva.com/";
+  } else if (brand.includes("recurso")) {
+    window.location.href = "https://recurso.mx/";
+  } else {
+    // Redirección por defecto
+    window.location.href = "https://conexion-ejecutiva.com/";
+  }
+}
+
 // ==========================================================================
 // ENVÍO DE FORMULARIO DE CAPTURA COMPLETADO A SUPABASE
 // ==========================================================================
@@ -1130,13 +1146,17 @@ async function submitCapturedForm(e) {
     return;
   }
 
+  // Mostrar pantalla de carga glassmorphic premium
+  const loader = document.getElementById('loading-overlay');
+  if (loader) loader.classList.add('active');
+
   // Deshabilitar el botón de envío para evitar doble clic y dar feedback visual en vivo
   const submitBtn = e && e.currentTarget ? e.currentTarget : null;
   let originalBtnText = '';
   if (submitBtn) {
     originalBtnText = submitBtn.innerText;
     submitBtn.disabled = true;
-    submitBtn.innerText = 'Guardando captura en base de datos... ⏳';
+    submitBtn.innerText = 'Guardando';
     submitBtn.style.opacity = '0.7';
     submitBtn.style.cursor = 'not-allowed';
   }
@@ -1233,6 +1253,7 @@ async function submitCapturedForm(e) {
 
     if (error) {
       console.error(error);
+      if (loader) loader.classList.remove('active');
       if (error.code === '42P01') {
         alert("Excelente captura. La tabla 'socioeconomic_captures' no existe en tu Supabase. Se muestra en consola el JSON listo para guardar.");
         console.log(JSON.stringify(payload, null, 2));
@@ -1256,7 +1277,7 @@ async function submitCapturedForm(e) {
     // 2. Sincronizar de forma síncrona/await con Google Apps Script si hay URL de Web App configurada
     if (mappingConfig.appsScriptUrl) {
       if (submitBtn) {
-        submitBtn.innerText = 'Rellenando documento en Google Drive... 📂';
+        submitBtn.innerText = 'Guardando';
       }
       
       try {
@@ -1301,28 +1322,22 @@ async function submitCapturedForm(e) {
           if (updateError) {
             console.error("Error al actualizar la captura con el link del documento:", updateError);
           }
-
-          if (resData.createdNew) {
-            alert(`¡Estudio guardado con éxito!\n\n⚠️ No se encontró ningún Docs editable en la carpeta del candidato, por lo que creamos una copia de tu plantilla base en su lugar:\n\n"${resData.docName}"`);
-          } else {
-            alert(`¡Estudio guardado con éxito!\n\nDocumento actualizado en Google Drive:\n"${resData.docName}"`);
-          }
-        } else {
-          const errorMsg = resData ? resData.error : 'Respuesta inválida del servidor de Google.';
-          alert(`¡Guardado en base de datos!\n\n⚠️ Sin embargo, hubo un problema al volcar la información en Google Drive:\n\n${errorMsg}\n\nPor favor, verifica las carpetas y archivos manualmente.`);
         }
       } catch (err) {
         console.error("Error al disparar Google Apps Script:", err);
-        alert("¡Guardado en base de datos!\n\n⚠️ No se pudo confirmar la inyección en Google Drive debido a restricciones de red o CORS del navegador. Los datos de captura se almacenaron correctamente en tu Panel.");
       }
-    } else {
-      alert("¡Estudio Socioeconómico guardado con éxito!");
     }
     
-    // Regresar al inicio
-    navigateTo('view-welcome');
+    // Ocultar pantalla de carga glassmorphic premium
+    if (loader) loader.classList.remove('active');
+    
+    // Notificar al usuario únicamente con éxito y redireccionar al nombre comercial
+    alert("¡Estudio guardado con éxito!");
+    redirectToBrandUrl();
   } catch (err) {
     console.error(err);
+    const loader = document.getElementById('loading-overlay');
+    if (loader) loader.classList.remove('active');
     alert("Error de conexión al subir la captura.");
     if (submitBtn) {
       submitBtn.disabled = false;
