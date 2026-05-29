@@ -299,13 +299,139 @@ var DocsService = {
   },
 
   /**
-   * Maneja el mapeo de arreglos (familiares) a marcadores si la plantilla los tiene, 
-   * o inyecta dinámicamente si no están definidos explícitamente.
+   * Maneja la expansión dinámica de filas de familiares (hermanos, hijos) en la tabla
+   * DATOS FAMILIARES del documento. Elimina filas vacías o con marcadores sin dato y
+   * sólo inserta las filas que tienen información real de la captura.
    */
   processSpecialSections: function(body, dataMap) {
-      // Como la plantilla tiene marcadores únicos para algunas cosas y la UI permite crear "N" familiares,
-      // esto maneja la expansión dinámica. 
-      // Por simplicidad, este boilerplate asume que los primeros se mapean directo y el resto ignora 
-      // o que el motor UI genera las claves numeradas internamente.
+    try {
+      // ── 1. Recopilar hermanos e hijos capturados ──────────────────────────
+      var siblings = [];
+      var children = [];
+
+      for (var si = 1; si <= 10; si++) {
+        var sName = dataMap['hermano_' + si + '_nombre'] || dataMap['hermano_' + si + '_name'] || '';
+        if (!sName.trim()) break;
+        siblings.push({
+          nombre:      sName.trim(),
+          parentesco:  dataMap['hermano_' + si + '_parentesco'] || '',
+          edad:        dataMap['hermano_' + si + '_edad']       || '',
+          escolaridad: dataMap['hermano_' + si + '_escolaridad']|| '',
+          ocupacion:   dataMap['hermano_' + si + '_ocupacion']  || ''
+        });
+      }
+
+      for (var hi = 1; hi <= 10; hi++) {
+        var hName = dataMap['hijo_' + hi + '_nombre'] || dataMap['hijo_' + hi + '_name'] || '';
+        if (!hName.trim()) break;
+        children.push({
+          nombre:      hName.trim(),
+          parentesco:  dataMap['hijo_' + hi + '_parentesco'] || '',
+          edad:        dataMap['hijo_' + hi + '_edad']       || '',
+          escolaridad: dataMap['hijo_' + hi + '_escolaridad']|| '',
+          ocupacion:   dataMap['hijo_' + hi + '_ocupacion']  || ''
+        });
+      }
+
+      // Si no se capturó ningún familiar dinámico, no hacer nada
+      if (siblings.length === 0 && children.length === 0) return;
+
+      // ── 2. Encontrar la tabla de DATOS FAMILIARES ─────────────────────────
+      var tables = body.getTables();
+      var familyTable = null;
+
+      for (var ti = 0; ti < tables.length; ti++) {
+        var tbl = tables[ti];
+        var tblText = tbl.getText().toLowerCase();
+        if (tblText.indexOf('parentesco') !== -1 && tblText.indexOf('nombre') !== -1) {
+          familyTable = tbl;
+          break;
+        }
+      }
+
+      if (!familyTable) return; // La plantilla no tiene tabla familiar — nada que hacer
+
+      // ── 3. Identificar y eliminar filas de hermanos y hijos de plantilla ──
+      // Marcadores que indican fila de hermano/hijo sin datos reales
+      var SIBLING_MARKERS = ['{{hermano}}', '{{hermano_nombre}}', '{{hermano_1}}'];
+      var CHILD_MARKERS   = ['{{hijo}}',    '{{hijo_nombre}}',    '{{hijo_1}}'];
+
+      var rowsToDelete = [];
+      var headerRowIndex = -1;
+
+      for (var ri = 0; ri < familyTable.getNumRows(); ri++) {
+        var row = familyTable.getRow(ri);
+        var rowText = row.getText();
+
+        // Guardar índice de la fila de encabezado (PARENTESCO | NOMBRE | ...)
+        if (rowText.toLowerCase().indexOf('parentesco') !== -1) {
+          headerRowIndex = ri;
+        }
+
+        // Filas con marcadores no reemplazados de hermano u hijo
+        var hasSiblingMarker = SIBLING_MARKERS.some(function(m) { return rowText.indexOf(m) !== -1; });
+        var hasChildMarker   = CHILD_MARKERS.some(function(m)   { return rowText.indexOf(m) !== -1; });
+
+        if (hasSiblingMarker || hasChildMarker) {
+          rowsToDelete.push(ri);
+        }
+      }
+
+      // Eliminar en orden descendente para no alterar índices
+      rowsToDelete.reverse().forEach(function(idx) {
+        familyTable.removeRow(idx);
+      });
+
+      // ── 4. Insertar filas de hermanos al final del bloque familiar ─────────
+      var insertAt = familyTable.getNumRows(); // Agregar al final
+
+      siblings.forEach(function(s) {
+        // Determinar parentesco real basado en el nombre si no se capturó
+        var parentesco = s.parentesco;
+        if (!parentesco) {
+          parentesco = 'Hermano/a';
+        }
+        var newRow = familyTable.insertTableRow(insertAt++);
+        newRow.appendTableCell().setText(parentesco);
+        newRow.appendTableCell().setText(s.nombre);
+        newRow.appendTableCell().setText(s.edad);
+        newRow.appendTableCell().setText(s.escolaridad);
+        newRow.appendTableCell().setText(s.ocupacion);
+      });
+
+      // ── 5. Insertar filas de hijos ─────────────────────────────────────────
+      children.forEach(function(h) {
+        var parentesco = h.parentesco;
+        if (!parentesco) {
+          parentesco = 'Hijo/a';
+        }
+        var newRow = familyTable.insertTableRow(insertAt++);
+        newRow.appendTableCell().setText(parentesco);
+        newRow.appendTableCell().setText(h.nombre);
+        newRow.appendTableCell().setText(h.edad);
+        newRow.appendTableCell().setText(h.escolaridad);
+        newRow.appendTableCell().setText(h.ocupacion);
+      });
+
+      // ── 6. Eliminar filas que quedaron completamente vacías ─────────────────
+      var numRows = familyTable.getNumRows();
+      for (var rr = numRows - 1; rr > headerRowIndex; rr--) {
+        var rRow = familyTable.getRow(rr);
+        var allEmpty = true;
+        for (var cc = 0; cc < rRow.getNumCells(); cc++) {
+          if (rRow.getCell(cc).getText().trim() !== '') {
+            allEmpty = false;
+            break;
+          }
+        }
+        if (allEmpty) {
+          familyTable.removeRow(rr);
+        }
+      }
+
+    } catch(e) {
+      console.warn('processSpecialSections: ' + e);
+      // No detener el flujo si falla esta parte — el resto del documento sigue procesándose
+    }
   }
 };

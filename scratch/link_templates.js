@@ -133,13 +133,19 @@ function detectInputType(id, label) {
 }
 
 function extractPlaceholders(mdContent) {
+  // Returns ordered array preserving first appearance order (not a Set)
   const regex = /\{\{([a-zA-ZáéíóúÁÉÍÓÚñÑ0-9_]+?)\}\}/g;
-  const placeholders = new Set();
+  const seen = new Set();
+  const ordered = [];
   let match;
   while ((match = regex.exec(mdContent)) !== null) {
-    placeholders.add(match[1].trim());
+    const key = match[1].trim();
+    if (!seen.has(key)) {
+      seen.add(key);
+      ordered.push(key);
+    }
   }
-  return Array.from(placeholders);
+  return ordered;
 }
 
 async function run() {
@@ -207,14 +213,16 @@ async function run() {
     const sectionsConfigField = existingSchema.find(f => f.id === '__sections_config__');
     
     // Construir nuevo form_schema mezclando inteligentemente propiedades guardadas (ej. opciones de dropdowns, dependencias)
+    // Cada campo recibe order_index = posición exacta de aparición en el documento fuente
     const newSchema = [];
     
-    placeholders.forEach(key => {
+    placeholders.forEach((key, idx) => {
       const existingField = existingSchema.find(f => f.id === key);
       
       if (existingField) {
         // Preservar campo existente con todas sus configuraciones y reglas de Supabase
-        newSchema.push(existingField);
+        // Actualizar order_index para reflejar la posición actual en el documento
+        newSchema.push({ ...existingField, order_index: idx });
       } else {
         // Crear campo nuevo de forma robusta e inteligente
         const label = getPrettyLabel(key);
@@ -226,7 +234,8 @@ async function run() {
           tipo: tipo,
           requerido: true,
           placeholder: `Ingrese ${label.toLowerCase()}`,
-          autogenerado: false
+          autogenerado: false,
+          order_index: idx
         };
         
         // Inyectar opciones para tipos select estándar

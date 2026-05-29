@@ -573,33 +573,9 @@ async function buildDynamicForm(template) {
   // Inyectar estructura global de Hermanos e Hijos Variables
   injectDynamicFamilyFields(schema);
 
-  // 4. Ordenar lógicamente la sección de Datos Personales
-  const fieldOrderPriority = [
-    'genero', 'género', 'sexo',
-    'estado_civil',
-    'fecha_nacimiento', 'fecha_de_nacimiento', 'fecha_nac',
-    'lugar_nacimiento', 'lugar_de_nacimiento', 'estado_nacimiento',
-    'edad',
-    'curp',
-    'rfc'
-  ];
-
-  schema.sort((a, b) => {
-    const aSec = a.section || classifyFieldSection(a.id);
-    const bSec = b.section || classifyFieldSection(b.id);
-    
-    if (aSec === bSec && aSec === 'sec-personales') {
-      const getPriority = (id) => {
-        const idLower = id.toLowerCase();
-        for (let i = 0; i < fieldOrderPriority.length; i++) {
-          if (idLower.includes(fieldOrderPriority[i])) return i;
-        }
-        return 999;
-      };
-      return getPriority(a.id) - getPriority(b.id);
-    }
-    return 0;
-  });
+  // Los campos se presentan en el orden exacto del documento original (order_index).
+  // NO se aplica sort arbitrario — el order_index asignado por link_templates.js durante la
+  // sincronización preserva la posición de aparición en la plantilla .docx del cliente.
 
   // Cargar configuración de secciones dinámica si existe
   const defaultSections = [
@@ -661,6 +637,10 @@ async function buildDynamicForm(template) {
     
     const formGroup = document.createElement('div');
     formGroup.className = 'form-group';
+    // Preserve document-order index for DOM re-sort after render
+    formGroup.dataset.orderIndex = (field.order_index !== undefined && field.order_index !== null)
+      ? field.order_index
+      : 9999;
     
     const isConditional = field.dependsOn && field.dependsOn.trim() !== '';
     if (isConditional) {
@@ -825,6 +805,21 @@ async function buildDynamicForm(template) {
     }
 
     targetContainer.appendChild(formGroup);
+  });
+
+  // 3b. Reordenar los campos dentro de cada sección por order_index
+  // para que coincidan exactamente con el orden de aparición en el documento original
+  Object.values(sectionContainers).forEach(container => {
+    const groups = Array.from(container.querySelectorAll('.form-group'));
+    if (groups.length <= 1) return;
+    // Ordenar por el atributo data-order-index que se agregó al renderizar
+    groups.sort((a, b) => {
+      const ai = parseInt(a.dataset.orderIndex || '9999', 10);
+      const bi = parseInt(b.dataset.orderIndex || '9999', 10);
+      return ai - bi;
+    });
+    // Re-insertar en orden correcto
+    groups.forEach(g => container.appendChild(g));
   });
 
   // 4. Agregar Botones de Navegación del Wizard
