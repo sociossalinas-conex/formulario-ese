@@ -321,3 +321,11 @@
 **Cadena de Validación:** RLad43d69fabfcf9hwegrgqwe45sd5345f1796a0c53e30532b
 
 El presente reporte es de carácter informativo, la información que se muestra fue recolectada por solicitud del contratante y ha sido recabada lícitamente con previo consentimiento del candidato, la cual se integra con la recopilación diaria de INFORMACIÓN PÚBLICA conforme a lo que establece el Artículo 18, Fracción II, Segundo párrafo de la Ley de Transparencia y Acceso a la Información Pública Gubernamental, lo que implica y constituye información pública no considerada confidencial por encontrarse en Registros Públicos o en fuentes de acceso público como lo son los propios Boletines Laborales. Las opiniones emitidas respecto al desempeño profesional o laboral de las referencias laborales emitidas en el portal, están constituidas por la experiencia que ha tenido la empresa con los mismos a través de su Departamento de Factor Humano, basados en el expediente laboral de cada uno de ellos, sirviendo como una referencia laboral al momento de solicitar un empleo. Esta herramienta está diseñada sin tener como propósito la afectación a terceras personas, pero sí de una debida publicación que les permita a los empleadores o Empresas facilitar sus reclutamientos, lo anterior sin contradecir lo establecido en la fracción IX del Artículo 133 de la Ley Federal del Trabajo y Fracción II del Artículo 206 del Código Penal vigente para la CDMX.
+
+## Evidencia Fotográfica
+
+{{foto_rostro}}
+
+{{foto_interior}}
+
+{{foto_exterior}}

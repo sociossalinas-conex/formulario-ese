@@ -233,3 +233,11 @@ contacto@conexion-ejecutiva.com.mx
 www.conexion-ejecutiva.com.mx
 
 71588631
+
+## Evidencia Fotográfica
+
+{{foto_rostro}}
+
+{{foto_interior}}
+
+{{foto_exterior}}

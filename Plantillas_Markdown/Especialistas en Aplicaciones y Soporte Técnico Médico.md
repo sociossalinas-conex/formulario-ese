@@ -354,3 +354,11 @@ El presente reporte es de carácter informativo, la información que se muestra 
 contacto@conexion.ejecutiva.com
 
 conexion.ejecutiva.com
+
+## Evidencia Fotográfica
+
+{{foto_rostro}}
+
+{{foto_interior}}
+
+{{foto_exterior}}

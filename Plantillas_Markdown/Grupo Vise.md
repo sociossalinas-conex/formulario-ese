@@ -456,3 +456,11 @@ www.conexion-ejecutiva.com
 5571588631
 
 **CARTAS DE RECOMENDACIÓN**
+
+## Evidencia Fotográfica
+
+{{foto_rostro}}
+
+{{foto_interior}}
+
+{{foto_exterior}}

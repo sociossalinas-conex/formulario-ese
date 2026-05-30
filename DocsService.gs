@@ -58,6 +58,8 @@ var DocsService = {
   
   /**
    * Reemplaza todos los marcadores {{clave}} por sus valores en el documento
+   * Usa un método de "Fuzzy Match" para empatar llaves del documento (ej. {{Fecha de nacimiento}})
+   * con las llaves del sistema (ej. fecha_nacimiento) ignorando palabras vacías y espacios.
    */
   replaceAllMarkers: function(doc, dataMap) {
     var body = doc.getBody();
@@ -65,29 +67,129 @@ var DocsService = {
     // Preparar mapa plano
     var flatMap = SheetsService.flattenData(dataMap);
     
-    // Procesar listas repetitivas (familiares, ingresos)
-    // Esto es un abordaje dinámico: Si el formulario devolvió arrays serializados, 
-    // intentamos buscar si la plantilla esperaba campos específicos o si inyectamos una tabla
+    // Función para normalizar al máximo y permitir cruce exacto
+    // Quita acentos, palabras conectivas (de, la, el), espacios y guiones
+    function fuzzyKey(str) {
+      return String(str).toLowerCase()
+        .replace(/[áàäâ]/g, 'a')
+        .replace(/[éèëê]/g, 'e')
+        .replace(/[íìïî]/g, 'i')
+        .replace(/[óòöô]/g, 'o')
+        .replace(/[úùüû]/g, 'u')
+        .replace(/ñ/g, 'n')
+        .replace(/[^a-z0-9]/g, ' ')
+        .replace(/\b(de|del|el|la|los|las|y|en|un|una)\b/g, '') 
+        .replace(/\s+/g, '');
+    }
+
+    // Crear un diccionario indexado por la llave "fuzzy" para búsqueda ultrarrápida
+    var fuzzyDataMap = {};
+    for (var key in flatMap) {
+      fuzzyDataMap[fuzzyKey(key)] = flatMap[key];
+    }
+
+    // Procesar listas repetitivas (familiares, ingresos) ANTES de procesar fotos
     this.processSpecialSections(body, dataMap);
     
-    // Reemplazo estándar de texto
-    for (var key in flatMap) {
-      var marker = '{{' + key + '}}';
-      var val = flatMap[key];
-      
-      // Formateo de fechas y booleanos
-      if (val === true) val = 'Sí';
-      if (val === false) val = 'No';
-      if (val instanceof Date) {
-        val = ('0' + val.getDate()).slice(-2) + '/' + ('0' + (val.getMonth()+1)).slice(-2) + '/' + val.getFullYear();
-      }
-      if (val === undefined || val === null) val = '';
-      
-      body.replaceText(marker, String(val));
+    // Encontrar todos los marcadores literales existentes en el documento
+    var text = body.getText();
+    var regex = /\{\{([^}]+)\}\}/g;
+    var match;
+    var uniqueMarkers = {};
+    while ((match = regex.exec(text)) !== null) {
+      uniqueMarkers[match[1]] = true; // match[1] es el texto exacto sin llaves
     }
     
-    // Limpiar marcadores sobrantes que no tuvieron dato
-    body.replaceText('{{[^{}]+}}', '');
+    // Escapar caracteres especiales de regex
+    function escapeRegExp(string) {
+      return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    // Procesar cada marcador único encontrado en el documento
+    for (var rawMarkerText in uniqueMarkers) {
+      var fKey = fuzzyKey(rawMarkerText);
+      var val = fuzzyDataMap[fKey];
+      
+      var exactMarkerPattern = '\\{\\{' + escapeRegExp(rawMarkerText) + '\\}\\}';
+
+      if (val !== undefined && val !== null && val !== '') {
+        // Detectar si el valor es una imagen base64 (fotos)
+        if (typeof val === 'string' && val.indexOf('data:image/') === 0) {
+          // Reemplazar marcador de texto por una imagen inline
+          this.replaceTextWithImage(body, exactMarkerPattern, val);
+        } else {
+          // Es un texto o fecha o booleano normal
+          if (val === true) val = 'Sí';
+          if (val === false) val = 'No';
+          if (val instanceof Date) {
+            val = ('0' + val.getDate()).slice(-2) + '/' + ('0' + (val.getMonth()+1)).slice(-2) + '/' + val.getFullYear();
+          }
+          body.replaceText(exactMarkerPattern, String(val));
+        }
+      }
+    }
+    
+    // Limpiar marcadores sobrantes que no tuvieron dato o no hicieron match
+    body.replaceText('\\{\\{[^{}]+\\}\\}', '');
+  },
+
+  /**
+   * Busca un patrón de texto y lo reemplaza por una imagen insertada (InlineImage)
+   */
+  replaceTextWithImage: function(body, searchPattern, base64Data) {
+    try {
+      // Limpiar prefijo base64
+      var dataPart = base64Data;
+      var contentType = 'image/jpeg';
+      if (base64Data.indexOf(',') !== -1) {
+        var parts = base64Data.split(',');
+        var match = parts[0].match(/:(.*?);/);
+        if (match) contentType = match[1];
+        dataPart = parts[1];
+      }
+      
+      var blob = Utilities.newBlob(Utilities.base64Decode(dataPart), contentType, 'photo');
+      
+      // Buscar el elemento de texto que contiene el marcador
+      var element = body.findText(searchPattern);
+      while (element) {
+        var textElement = element.getElement();
+        var startOffset = element.getStartOffset();
+        var endOffset = element.getEndOffsetInclusive();
+        
+        // Insertar imagen en la misma posición (usando parent paragraph o Text element)
+        var parent = textElement.getParent();
+        if (parent.getType() === DocumentApp.ElementType.PARAGRAPH || parent.getType() === DocumentApp.ElementType.LIST_ITEM) {
+          // Limpiar el texto del marcador exacto
+          textElement.deleteText(startOffset, endOffset);
+          
+          // Calcular el índice para insertar la imagen
+          var childIndex = parent.getChildIndex(textElement);
+          
+          // Si eliminamos todo el texto del TextElement, podemos insertar antes o después
+          // La forma más robusta es insertar en el Párrafo
+          var img = parent.insertInlineImage(childIndex + 1, blob);
+          
+          // Escalar la imagen a un tamaño razonable para el documento (ej. max ancho 300px)
+          var origW = img.getWidth();
+          var origH = img.getHeight();
+          var maxW = 350;
+          if (origW > maxW) {
+            var ratio = maxW / origW;
+            img.setWidth(maxW);
+            img.setHeight(origH * ratio);
+          }
+        } else {
+          // Fallback simple: reemplazar el texto entero si no es párrafo
+          textElement.setText("");
+        }
+        
+        // Buscar el siguiente (por si hay múltiples marcadores)
+        element = body.findText(searchPattern, element);
+      }
+    } catch(e) {
+      console.warn("Error insertando imagen para patrón " + searchPattern + ": " + e);
+    }
   },
 
   /**

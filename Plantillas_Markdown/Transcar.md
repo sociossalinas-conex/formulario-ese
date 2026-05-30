@@ -392,3 +392,11 @@
 |  |
 | --- |
 | **AVISO DE PRIVACIDAD** |
+
+## Evidencia Fotográfica
+
+{{foto_rostro}}
+
+{{foto_interior}}
+
+{{foto_exterior}}

@@ -373,3 +373,11 @@ El presente reporte es de carácter informativo, la información que se muestra 
 contacto@recurso.mx
 
 www.recurso.mx
+
+## Evidencia Fotográfica
+
+{{foto_rostro}}
+
+{{foto_interior}}
+
+{{foto_exterior}}

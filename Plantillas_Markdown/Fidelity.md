@@ -448,3 +448,11 @@ contacto@recurso.mx
 [www.recurso.mx](http://www.recurso.mx)
 
 **DOCUMENTOS ANEXOS**
+
+## Evidencia Fotográfica
+
+{{foto_rostro}}
+
+{{foto_interior}}
+
+{{foto_exterior}}

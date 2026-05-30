@@ -440,3 +440,11 @@
 * **INVESTIGACION LEGAL**
 * **MAPA DE UBICACIÓN**
 * **DOCUMENTOS ANEXOS**
+
+## Evidencia Fotográfica
+
+{{foto_rostro}}
+
+{{foto_interior}}
+
+{{foto_exterior}}

@@ -301,3 +301,11 @@ El presente reporte es de carácter informativo, la información que se muestra 
 contacto@nomipago.mx
 
 [www.nomipago.mx](http://www.nomipago.mx)
+
+## Evidencia Fotográfica
+
+{{foto_rostro}}
+
+{{foto_interior}}
+
+{{foto_exterior}}
