@@ -769,6 +769,22 @@ async function buildDynamicForm(template) {
           <textarea id="field-${field.id}" class="form-textarea" placeholder="${escapeHTML(field.placeholder || '')}" data-transform="${field.transform || 'none'}" ${linkFromAttr} ${field.requerido ? 'required' : ''}></textarea>
         </div>
       `;
+    } else if (field.id.includes('foto')) {
+      formGroup.innerHTML = `
+        <div class="field-label-row">
+          <label class="field-label-v2">
+            ${escapeHTML(formatLabel(field.label))} ${field.requerido ? '<span class="required-star">*</span>' : ''}
+          </label>
+          ${tooltipHtml}
+        </div>
+        ${helpBlockHtml}
+        <div class="file-upload-wrapper" style="width: 100%; text-align: center; border: 2px dashed var(--color-border); padding: 20px; border-radius: 8px; background: rgba(255,255,255,0.05); position: relative;">
+          <i data-lucide="camera" style="width: 32px; height: 32px; color: var(--color-primary); margin-bottom: 10px;"></i>
+          <p style="margin: 0 0 10px; font-size: 0.9em; color: var(--color-text-dark);">Toca para tomar foto o subir imagen</p>
+          <input type="file" id="field-${field.id}" accept="image/*" capture="environment" style="width: 100%; cursor: pointer;" ${field.requerido ? 'required' : ''} onchange="handlePhotoUpload(event, '${field.id}')">
+          <img id="preview-${field.id}" style="display: none; max-width: 100%; max-height: 200px; margin-top: 15px; border-radius: 8px; border: 1px solid var(--color-border);" />
+        </div>
+      `;
     } else {
       let iconName = 'edit-2';
       let extraAttrs = '';
@@ -1161,7 +1177,14 @@ async function submitCapturedForm(e) {
   state.matchedTemplate.form_schema.forEach(field => {
     const element = document.getElementById(`field-${field.id}`);
     if (element) {
-      answers[field.id] = element.value.trim();
+      if (field.id.includes('foto')) {
+        // Para inputs de fotos, el base64 comprimido se guardó en el dataset
+        if (element.dataset.base64) {
+          answers[field.id] = element.dataset.base64;
+        }
+      } else {
+        answers[field.id] = element.value.trim();
+      }
     }
     // Agregar el campo detalle de demandas si existe
     if (field.id === 'demandas') {
