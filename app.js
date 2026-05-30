@@ -778,11 +778,14 @@ async function buildDynamicForm(template) {
           ${tooltipHtml}
         </div>
         ${helpBlockHtml}
-        <div class="file-upload-wrapper" style="width: 100%; text-align: center; border: 2px dashed var(--color-border); padding: 20px; border-radius: 8px; background: rgba(255,255,255,0.05); position: relative;">
-          <i data-lucide="camera" style="width: 32px; height: 32px; color: var(--color-primary); margin-bottom: 10px;"></i>
-          <p style="margin: 0 0 10px; font-size: 0.9em; color: var(--color-text-dark);">Toca para tomar foto o subir imagen</p>
-          <input type="file" id="field-${field.id}" accept="image/*" capture="environment" style="width: 100%; cursor: pointer;" ${field.requerido ? 'required' : ''} onchange="handlePhotoUpload(event, '${field.id}')">
-          <img id="preview-${field.id}" style="display: none; max-width: 100%; max-height: 200px; margin-top: 15px; border-radius: 8px; border: 1px solid var(--color-border);" />
+        <div class="file-upload-wrapper" style="width: 100%; text-align: center; border: 2px dashed var(--color-border); padding: 30px 20px; border-radius: 12px; background: rgba(255,255,255,0.03); position: relative; cursor: pointer; transition: all 0.3s ease; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;">
+          <div class="upload-icon-container" style="width: 50px; height: 50px; border-radius: 50%; background: rgba(37, 99, 235, 0.1); display: flex; align-items: center; justify-content: center; margin-bottom: 4px; transition: all 0.3s ease;">
+            <i data-lucide="camera" style="width: 24px; height: 24px; color: var(--color-primary);"></i>
+          </div>
+          <p class="upload-text" style="margin: 0; font-size: 0.95em; font-weight: 500; color: var(--color-text-main);">Toca aquí para abrir la cámara</p>
+          <p class="upload-subtext" style="margin: 0; font-size: 0.8em; color: var(--color-text-dark);">Captura directa desde tu celular</p>
+          <input type="file" id="field-${field.id}" accept="image/*" capture="environment" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; z-index: 10;" ${field.requerido ? 'required' : ''} onchange="handlePhotoUpload(event, '${field.id}')">
+          <img id="preview-${field.id}" style="display: none; max-width: 100%; max-height: 220px; margin-top: 10px; border-radius: 8px; border: 1px solid var(--color-border); z-index: 5; object-fit: cover;" />
         </div>
       `;
     } else {
@@ -1848,6 +1851,94 @@ function escapeJS(str) {
       default: return '';
     }
   });
+}
+
+function handlePhotoUpload(event, fieldId) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  // Feedback visual instantáneo
+  const wrapper = event.target.closest('.file-upload-wrapper');
+  const uploadIcon = wrapper ? wrapper.querySelector('.upload-icon-container') : null;
+  const uploadText = wrapper ? wrapper.querySelector('.upload-text') : null;
+  const uploadSubtext = wrapper ? wrapper.querySelector('.upload-subtext') : null;
+
+  if (uploadText) uploadText.innerText = 'Comprimiendo foto...';
+  if (uploadSubtext) uploadSubtext.innerText = 'Optimizando para envío rápido';
+  if (uploadIcon) {
+    uploadIcon.style.background = 'rgba(245, 158, 11, 0.1)';
+    const icon = uploadIcon.querySelector('i');
+    if (icon) {
+      icon.style.color = '#f59e0b';
+      icon.setAttribute('data-lucide', 'loader-2');
+      if (window.lucide) window.lucide.createIcons();
+    }
+  }
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const img = new Image();
+    img.onload = function() {
+      // Redimensionar para optimizar peso (máx 900px de ancho/alto)
+      const canvas = document.createElement('canvas');
+      let width = img.width;
+      let height = img.height;
+      const MAX_RESOLUTION = 900;
+
+      if (width > height) {
+        if (width > MAX_RESOLUTION) {
+          height = Math.round((height * MAX_RESOLUTION) / width);
+          width = MAX_RESOLUTION;
+        }
+      } else {
+        if (height > MAX_RESOLUTION) {
+          width = Math.round((width * MAX_RESOLUTION) / height);
+          height = MAX_RESOLUTION;
+        }
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+
+      // Compresión a JPEG con calidad 0.75
+      const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.75);
+
+      // Guardar base64 en dataset del input invisible
+      const inputEl = document.getElementById(`field-${fieldId}`);
+      if (inputEl) {
+        inputEl.dataset.base64 = compressedDataUrl;
+      }
+
+      // Mostrar preview
+      const previewImg = document.getElementById(`preview-${fieldId}`);
+      if (previewImg) {
+        previewImg.src = compressedDataUrl;
+        previewImg.style.display = 'block';
+        previewImg.style.margin = '15px auto 0 auto';
+      }
+
+      // Éxito - Actualizar interfaz
+      if (uploadText) uploadText.innerHTML = '<span style="color: var(--color-success); font-weight: 600;">¡Foto cargada!</span>';
+      if (uploadSubtext) uploadSubtext.innerText = 'Toca de nuevo para volver a capturar';
+      if (uploadIcon) {
+        uploadIcon.style.background = 'rgba(16, 185, 129, 0.1)';
+        const icon = uploadIcon.querySelector('i');
+        if (icon) {
+          icon.style.color = 'var(--color-success)';
+          icon.setAttribute('data-lucide', 'check');
+          if (window.lucide) window.lucide.createIcons();
+        }
+      }
+      if (wrapper) {
+        wrapper.style.borderColor = 'var(--color-success)';
+        wrapper.style.background = 'rgba(16, 185, 129, 0.03)';
+      }
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
 }
 
 function toTitleCase(str) {
